@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: smarttrip-backend-ornella
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: CORS_ORIGINS
+        value: http://localhost:5173
+      - key: PRINT_VERIFICATION_TOKENS
+        value: "true"
