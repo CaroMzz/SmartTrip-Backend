@@ -77,3 +77,7 @@ Devuelve un token de sesión temporal (Bearer) cuando las credenciales son corre
 ### Consultar la sesión
 
 `GET /usuarios/me` requiere el token devuelto por el login en el encabezado `Authorization: Bearer <token>`. La sesión vence a las 8 horas. Este endpoint sirve como ejemplo de cómo proteger futuras rutas.
+
+## Token de confirmacion recibido por React
+
+Para desarrollo local, si quieres que el navegador reciba el token directamente, configura `RETURN_VERIFICATION_TOKENS=true` en el `.env` del backend. La respuesta de registro incluira `tokenVerificacion`; el frontend puede pasarlo a `confirmarCorreo(tokenVerificacion)`. Esta opcion esta apagada por defecto y no debe activarse en un backend publico.

@@ -46,10 +46,13 @@ const registrarUsuario = async (req, res) => {
             console.info(`[DESARROLLO] Token de confirmación para ${usuario.correo}: ${token}`);
         }
 
-        return res.status(201).json({
-            mensaje: "Registro creado. En desarrollo, habilitá PRINT_VERIFICATION_TOKENS para probar la confirmación.",
+        const respuesta = {
+            mensaje: "Registro creado correctamente",
             usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.correo }
-        });
+        };
+        if (config.devolverTokenVerificacion) respuesta.tokenVerificacion = token;
+
+        return res.status(201).json(respuesta);
     } catch (error) {
         if (error.codigo === "CORREO_DUPLICADO") {
             return res.status(409).json({ mensaje: error.message });

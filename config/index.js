@@ -24,5 +24,6 @@ module.exports = Object.freeze({
     duracionTokenVerificacionMs: leerEnteroPositivo("VERIFICATION_TOKEN_TTL_MS", 24 * 60 * 60 * 1000),
     duracionSesionMs: leerEnteroPositivo("SESSION_TTL_MS", 8 * 60 * 60 * 1000),
     origenesCors: (process.env.CORS_ORIGINS || "").split(",").map((origen) => origen.trim()).filter(Boolean),
-    imprimirTokensVerificacion: leerBooleano("PRINT_VERIFICATION_TOKENS")
+    imprimirTokensVerificacion: leerBooleano("PRINT_VERIFICATION_TOKENS"),
+    devolverTokenVerificacion: leerBooleano("RETURN_VERIFICATION_TOKENS")
 });

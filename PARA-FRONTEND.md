@@ -125,3 +125,9 @@ Para probar confirmación local, el backend puede imprimir el token en su consol
 3. Hacer registro, confirmar correo usando el token de desarrollo e iniciar sesión.
 
 El almacenamiento de usuarios y sesiones del backend actual es temporal y en memoria; se borra al reiniciar el proceso.
+
+## Recibir el token directamente en React (desarrollo local)
+
+Si tu amiga ejecuta el backend en su computadora, copia `.env.example` a `.env` y cambia `RETURN_VERIFICATION_TOKENS=true`. Reinicia el backend con `npm start`. El registro respondera con `tokenVerificacion` en el JSON; el frontend ya puede pasarlo a `confirmarCorreo(tokenVerificacion)`. Asi el token llega al navegador que hizo el registro y no necesita copiarse desde una consola.
+
+Para este flujo local, React debe usar `VITE_API_URL=http://localhost:3000` y ella debe iniciar tambien el backend en esa misma computadora. No hace falta ngrok. La opcion solo es para desarrollo; mantenla en `false` en cualquier backend publico o productivo.

@@ -12,4 +12,6 @@ services:
       - key: CORS_ORIGINS
         value: http://localhost:5173
       - key: PRINT_VERIFICATION_TOKENS
-        value: "true"
+        value: "false"
+      - key: RETURN_VERIFICATION_TOKENS
+        value: "false"
