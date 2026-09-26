@@ -1,4 +1,8 @@
-require("node:process").loadEnvFile?.();
+const { existsSync } = require("node:fs");
+const { join } = require("node:path");
+
+const envFile = join(__dirname, "..", ".env");
+if (existsSync(envFile)) require("node:process").loadEnvFile?.(envFile);
 
 const express = require("express");
 const config = require("../config");
