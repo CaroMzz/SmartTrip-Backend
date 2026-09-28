@@ -10,6 +10,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = require("../src/database/pool");
+const esquema = process.env.DB_SCHEMA || "smarttrip";
 
 const inspeccionar = async () => {
     try {
@@ -20,12 +21,12 @@ const inspeccionar = async () => {
                 data_type AS tipo,
                 is_nullable AS admite_null
             FROM information_schema.columns
-            WHERE table_schema = 'public'
+            WHERE table_schema = $1
             ORDER BY table_name, ordinal_position
-        `);
+        `, [esquema]);
 
         if (resultado.rowCount === 0) {
-            console.log("No hay tablas en el esquema public.");
+            console.log(`No hay tablas en el esquema ${esquema}.`);
             return;
         }
 

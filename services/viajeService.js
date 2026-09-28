@@ -184,7 +184,7 @@ const validarCamposPermitidos = (datos, campos) => {
     if (!Object.keys(datos).length) throw new AppError(400, "Indicá al menos un campo para guardar");
 };
 
-const listar = (usuarioId) => repository.listarPorUsuario(usuarioId).map((viaje) => {
+const listar = async (usuarioId) => (await repository.listarPorUsuario(usuarioId)).map((viaje) => {
     const vista = vistaPublica(viaje);
     delete vista.itinerarios;
     const seleccionada = viaje.itinerarios?.find((item) => item.id === viaje.itinerarioSeleccionadoId);
@@ -194,20 +194,20 @@ const listar = (usuarioId) => repository.listarPorUsuario(usuarioId).map((viaje)
     };
 });
 
-const obtener = (usuarioId, viajeId) => {
-    const viaje = repository.buscarPorUsuario(viajeId, usuarioId);
+const obtener = async (usuarioId, viajeId) => {
+    const viaje = await repository.buscarPorUsuario(viajeId, usuarioId);
     if (!viaje) throw new AppError(404, "No se encontró el viaje");
     return vistaPublica(viaje);
 };
 
-const crear = (usuarioId, datos) => {
+const crear = async (usuarioId, datos) => {
     validarCamposPermitidos(datos, [
         "nombre", "paises", "ciudadesObligatorias", "fechaInicio", "duracionDias",
         "cantidadPersonas", "presupuestoTotal", "moneda", "transportePreferido", "prioridades"
     ]);
     const normalizados = solicitar(datosViaje(datos), 400);
     const ahora = new Date().toISOString();
-    const viaje = repository.crear({
+    const viaje = await repository.crear({
         ...normalizados,
         usuarioId,
         estado: "borrador",
@@ -219,15 +219,15 @@ const crear = (usuarioId, datos) => {
     return vistaPublica(viaje);
 };
 
-const actualizar = (usuarioId, viajeId, datos) => {
-    const actual = repository.buscarPorUsuario(viajeId, usuarioId);
+const actualizar = async (usuarioId, viajeId, datos) => {
+    const actual = await repository.buscarPorUsuario(viajeId, usuarioId);
     if (!actual) throw new AppError(404, "No se encontró el viaje");
     validarCamposPermitidos(datos, [
         "nombre", "paises", "ciudadesObligatorias", "fechaInicio", "duracionDias",
         "cantidadPersonas", "presupuestoTotal", "moneda", "transportePreferido", "prioridades"
     ]);
     const normalizados = solicitar(datosViaje(datos, actual), 400);
-    const actualizado = repository.guardar({
+    const actualizado = await repository.guardar({
         ...actual,
         ...normalizados,
         estado: "borrador",
@@ -238,8 +238,8 @@ const actualizar = (usuarioId, viajeId, datos) => {
     return vistaPublica(actualizado);
 };
 
-const configurar = (usuarioId, viajeId, datos) => {
-    const actual = repository.buscarPorUsuario(viajeId, usuarioId);
+const configurar = async (usuarioId, viajeId, datos) => {
+    const actual = await repository.buscarPorUsuario(viajeId, usuarioId);
     if (!actual) throw new AppError(404, "No se encontró el viaje");
     const permitidos = ["presupuestoTotal", "moneda", "transportePreferido", "prioridades"];
     const filtrados = Object.fromEntries(Object.entries(datos).filter(([clave]) => permitidos.includes(clave)));
@@ -248,7 +248,7 @@ const configurar = (usuarioId, viajeId, datos) => {
     }
     if (!Object.keys(filtrados).length) throw new AppError(400, "Indicá al menos una preferencia para guardar");
     const normalizados = solicitar(datosViaje(filtrados, actual), 400);
-    const actualizado = repository.guardar({
+    const actualizado = await repository.guardar({
         ...actual,
         ...normalizados,
         estado: "borrador",
@@ -259,8 +259,8 @@ const configurar = (usuarioId, viajeId, datos) => {
     return vistaPublica(actualizado);
 };
 
-const borrar = (usuarioId, viajeId) => {
-    if (!repository.eliminar(viajeId, usuarioId)) throw new AppError(404, "No se encontró el viaje");
+const borrar = async (usuarioId, viajeId) => {
+    if (!await repository.eliminar(viajeId, usuarioId)) throw new AppError(404, "No se encontró el viaje");
 };
 
 module.exports = { listar, obtener, crear, actualizar, configurar, borrar };

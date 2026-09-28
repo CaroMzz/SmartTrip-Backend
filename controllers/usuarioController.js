@@ -81,7 +81,7 @@ const reenviarVerificacion = async (req, res) => {
         return res.status(400).json({ mensaje: "Ingresá un email válido" });
     }
 
-    const cuenta = emailService.estaConfigurado() ? usuarioService.reenviarVerificacion(correo) : null;
+    const cuenta = emailService.estaConfigurado() ? await usuarioService.reenviarVerificacion(correo) : null;
     if (cuenta) {
         try {
             await emailService.enviarVerificacion({ correo: cuenta.usuario.correo, nombre: cuenta.usuario.nombre, token: cuenta.token });
@@ -125,7 +125,7 @@ const iniciarSesion = async (req, res) => {
     }
 };
 
-const confirmarCorreo = (req, res) => {
+const confirmarCorreo = async (req, res) => {
     const datos = cuerpoJson(req, res);
     if (!datos) return;
 
@@ -135,7 +135,7 @@ const confirmarCorreo = (req, res) => {
     }
 
     try {
-        const usuario = usuarioService.confirmarCorreo(token);
+        const usuario = await usuarioService.confirmarCorreo(token);
         return res.status(200).json({
             mensaje: "Correo confirmado correctamente",
             usuario
@@ -153,7 +153,7 @@ const obtenerPerfil = (req, res) => {
     return res.status(200).json({ usuario: req.usuario });
 };
 
-const actualizarPerfil = (req, res) => {
+const actualizarPerfil = async (req, res) => {
     const datos = cuerpoJson(req, res);
     if (!datos) return;
     const permitidos = ["nombre", "transportePreferido", "prioridades"];
@@ -188,12 +188,12 @@ const actualizarPerfil = (req, res) => {
         return res.status(400).json({ mensaje: "Indicá al menos un campo para actualizar" });
     }
 
-    const usuario = usuarioService.actualizarPerfil(req.usuario.id, cambios);
+    const usuario = await usuarioService.actualizarPerfil(req.usuario.id, cambios);
     return res.json({ mensaje: "Perfil actualizado", usuario });
 };
 
-const cerrarSesion = (req, res) => {
-    usuarioService.cerrarSesion(req.tokenSesion);
+const cerrarSesion = async (req, res) => {
+    await usuarioService.cerrarSesion(req.tokenSesion);
     return res.status(204).end();
 };
 

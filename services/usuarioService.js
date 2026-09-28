@@ -16,7 +16,7 @@ const registrarUsuario = async (nombre, correo, contrasena) => {
     const contrasenaHash = await bcrypt.hash(contrasena, config.rondasBcrypt);
     let usuario;
     try {
-        usuario = repository.crearUsuario({
+        usuario = await repository.crearUsuario({
             nombre: nombre.trim(),
             correo: correoNormalizado,
             contrasena_hash: contrasenaHash,
@@ -29,7 +29,7 @@ const registrarUsuario = async (nombre, correo, contrasena) => {
     }
 
     const token = randomBytes(32).toString("hex");
-    repository.guardarVerificacion(hashToken(token), {
+    await repository.guardarVerificacion(hashToken(token), {
         usuarioId: usuario.id,
         venceEn: Date.now() + config.duracionTokenVerificacionMs,
         usadoEn: null
@@ -38,7 +38,7 @@ const registrarUsuario = async (nombre, correo, contrasena) => {
 };
 
 const iniciarSesion = async (correo, contrasena) => {
-    const usuario = repository.buscarPorCorreo(correo.trim().toLowerCase());
+    const usuario = await repository.buscarPorCorreo(correo.trim().toLowerCase());
     if (!usuario || !(await bcrypt.compare(contrasena, usuario.contrasena_hash))) {
         const error = new Error("Correo o contraseña incorrectos");
         error.codigo = "CREDENCIALES_INVALIDAS";
@@ -51,34 +51,34 @@ const iniciarSesion = async (correo, contrasena) => {
     }
 
     const token = randomBytes(32).toString("hex");
-    repository.guardarSesion(hashToken(token), {
+    await repository.guardarSesion(hashToken(token), {
         usuarioId: usuario.id,
         venceEn: Date.now() + config.duracionSesionMs
     });
     return { token, usuario: perfilPublico(usuario) };
 };
 
-const obtenerUsuarioDeSesion = (token) => {
+const obtenerUsuarioDeSesion = async (token) => {
     const hash = hashToken(token);
-    const sesion = repository.buscarSesion(hash);
+    const sesion = await repository.buscarSesion(hash);
     if (!sesion || sesion.venceEn <= Date.now()) {
-        if (sesion) repository.eliminarSesion(hash);
+        if (sesion) await repository.eliminarSesion(hash);
         return null;
     }
-    const usuario = repository.buscarPorId(sesion.usuarioId);
+    const usuario = await repository.buscarPorId(sesion.usuarioId);
     if (!usuario || !usuario.correo_verificado_en) return null;
     return perfilPublico(usuario);
 };
 
-const confirmarCorreo = (token) => {
+const confirmarCorreo = async (token) => {
     const hash = hashToken(token);
-    const registro = repository.buscarVerificacion(hash);
+    const registro = await repository.buscarVerificacion(hash);
     if (!registro || registro.usadoEn || registro.venceEn <= Date.now()) {
         const error = new Error("El token no es válido, ya fue usado o venció");
         error.codigo = "TOKEN_INVALIDO";
         throw error;
     }
-    const usuario = repository.buscarPorId(registro.usuarioId);
+    const usuario = await repository.buscarPorId(registro.usuarioId);
     if (!usuario) {
         const error = new Error("No se encontró el usuario asociado al token");
         error.codigo = "TOKEN_INVALIDO";
@@ -86,17 +86,17 @@ const confirmarCorreo = (token) => {
     }
     registro.usadoEn = Date.now();
     usuario.correo_verificado_en = new Date().toISOString();
-    repository.guardarUsuario(usuario);
-    repository.guardarVerificacion(hash, registro);
+    await repository.guardarUsuario(usuario);
+    await repository.guardarVerificacion(hash, registro);
     return { id: usuario.id, correo: usuario.correo };
 };
 
-const reenviarVerificacion = (correo) => {
-    const usuario = repository.buscarPorCorreo(correo.trim().toLowerCase());
+const reenviarVerificacion = async (correo) => {
+    const usuario = await repository.buscarPorCorreo(correo.trim().toLowerCase());
     if (!usuario || usuario.correo_verificado_en) return null;
-    repository.revocarVerificacionesUsuario(usuario.id);
+    await repository.revocarVerificacionesUsuario(usuario.id);
     const token = randomBytes(32).toString("hex");
-    repository.guardarVerificacion(hashToken(token), {
+    await repository.guardarVerificacion(hashToken(token), {
         usuarioId: usuario.id,
         venceEn: Date.now() + config.duracionTokenVerificacionMs,
         usadoEn: null
@@ -104,8 +104,8 @@ const reenviarVerificacion = (correo) => {
     return { usuario, token };
 };
 
-const actualizarPerfil = (usuarioId, cambios) => {
-    const usuario = repository.buscarPorId(usuarioId);
+const actualizarPerfil = async (usuarioId, cambios) => {
+    const usuario = await repository.buscarPorId(usuarioId);
     if (!usuario || !usuario.correo_verificado_en) {
         const error = new Error("No se encontró el usuario");
         error.codigo = "USUARIO_NO_ENCONTRADO";
@@ -118,12 +118,13 @@ const actualizarPerfil = (usuarioId, cambios) => {
             ? { transportePreferido: cambios.transportePreferido } : {}),
         ...(cambios.prioridades !== undefined ? { prioridades: cambios.prioridades } : {})
     };
-    repository.guardarUsuario(usuario);
+    if (cambios.transportePreferido !== undefined) usuario.transporte_preferido = cambios.transportePreferido;
+    await repository.guardarUsuario(usuario);
     return perfilPublico(usuario);
 };
 
 const cambiarContrasena = async (usuarioId, actual, nueva, tokenSesion) => {
-    const usuario = repository.buscarPorId(usuarioId);
+    const usuario = await repository.buscarPorId(usuarioId);
     if (!usuario || !usuario.correo_verificado_en) {
         const error = new Error("No se encontró el usuario");
         error.codigo = "USUARIO_NO_ENCONTRADO";
@@ -135,8 +136,8 @@ const cambiarContrasena = async (usuarioId, actual, nueva, tokenSesion) => {
         throw error;
     }
     usuario.contrasena_hash = await bcrypt.hash(nueva, config.rondasBcrypt);
-    repository.guardarUsuario(usuario);
-    repository.revocarSesionesUsuario(usuarioId, hashToken(tokenSesion));
+    await repository.guardarUsuario(usuario);
+    await repository.revocarSesionesUsuario(usuarioId, hashToken(tokenSesion));
 };
 
 const cerrarSesion = (token) => repository.eliminarSesion(hashToken(token));

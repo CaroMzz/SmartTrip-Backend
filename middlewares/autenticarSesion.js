@@ -1,6 +1,6 @@
 const usuarioService = require("../services/usuarioService");
 
-const autenticarSesion = (req, res, next) => {
+const autenticarSesion = async (req, res, next) => {
     const authorization = req.headers.authorization || "";
     const coincidencia = /^Bearer\s+(\S+)$/i.exec(authorization);
 
@@ -9,7 +9,7 @@ const autenticarSesion = (req, res, next) => {
     }
 
     const token = coincidencia[1];
-    const usuario = usuarioService.obtenerUsuarioDeSesion(token);
+    const usuario = await usuarioService.obtenerUsuarioDeSesion(token);
     if (!usuario) {
         return res.status(401).json({ mensaje: "La sesión no existe o venció" });
     }

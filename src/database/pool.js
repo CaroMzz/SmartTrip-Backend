@@ -7,6 +7,7 @@ if (!config.databaseUrl) {
 
 const pool = new Pool({
     connectionString: config.databaseUrl,
+    options: "-c search_path=smarttrip,public",
     max: 5,
     connectionTimeoutMillis: 8000,
     idleTimeoutMillis: 30000

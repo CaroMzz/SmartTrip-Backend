@@ -80,6 +80,12 @@ const listarPaises = (consulta = "") => {
     return [...mapa.values()].filter((pais) => !prefijo || normalizar(pais.nombre).includes(prefijo));
 };
 
+const obtenerPais = (nombre) => {
+    const clave = normalizar(nombre);
+    return listarPaises().find((pais) => normalizar(pais.nombre) === clave
+        || pais.codigo.toLowerCase() === clave || pais.codigo3?.toLowerCase() === clave) || null;
+};
+
 const buscarCiudades = (consulta = "", codigos = []) => {
     const q = normalizar(consulta);
     const permitidos = new Set(codigos.map((codigo) => String(codigo).toUpperCase()));
@@ -101,4 +107,4 @@ const buscarCiudad = (nombre, pais = null) => {
 
 const obtenerCiudad = (id) => ciudades.find((ciudad) => ciudad.idExterno === id) || null;
 
-module.exports = { ciudades, listarPaises, buscarCiudades, buscarCiudad, obtenerCiudad, normalizar };
+module.exports = { ciudades, listarPaises, obtenerPais, buscarCiudades, buscarCiudad, obtenerCiudad, normalizar };

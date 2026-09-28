@@ -188,7 +188,7 @@ const crearAlternativa = async (viaje, tipo, titulo, ciudades, peso) => {
 };
 
 const generar = async (usuarioId, viajeId) => {
-    const viaje = repository.buscarPorUsuario(viajeId, usuarioId);
+    const viaje = await repository.buscarPorUsuario(viajeId, usuarioId);
     if (!viaje) throw new AppError(404, "No se encontró el viaje");
     if (!viaje.presupuestoTotal || !viaje.transportePreferido) {
         throw new AppError(409, "Completá el presupuesto y el transporte antes de generar alternativas");
@@ -229,28 +229,28 @@ const generar = async (usuarioId, viajeId) => {
     alternativas.sort((a, b) => b.puntaje - a.puntaje);
     alternativas[0].recomendada = true;
 
-    const guardado = repository.guardarItinerarios(viajeId, usuarioId, alternativas);
+    const guardado = await repository.guardarItinerarios(viajeId, usuarioId, alternativas);
     if (!guardado) throw new AppError(404, "No se encontró el viaje");
-    return alternativas;
+    return guardado.itinerarios;
 };
 
-const listar = (usuarioId, viajeId) => {
-    const viaje = repository.buscarPorUsuario(viajeId, usuarioId);
+const listar = async (usuarioId, viajeId) => {
+    const viaje = await repository.buscarPorUsuario(viajeId, usuarioId);
     if (!viaje) throw new AppError(404, "No se encontró el viaje");
     return viaje.itinerarios || [];
 };
 
-const seleccionar = (usuarioId, viajeId, itinerarioId) => {
+const seleccionar = async (usuarioId, viajeId, itinerarioId) => {
     if (typeof itinerarioId !== "string" || itinerarioId.length > 80) {
         throw new AppError(400, "Indicá un identificador de itinerario válido");
     }
-    const actualizado = repository.seleccionarItinerario(viajeId, usuarioId, itinerarioId);
+    const actualizado = await repository.seleccionarItinerario(viajeId, usuarioId, itinerarioId);
     if (!actualizado) throw new AppError(404, "No se encontró el viaje o el itinerario");
     return actualizado.itinerarios.find((item) => item.id === itinerarioId);
 };
 
-const obtenerSeleccionado = (usuarioId, viajeId) => {
-    const viaje = repository.buscarPorUsuario(viajeId, usuarioId);
+const obtenerSeleccionado = async (usuarioId, viajeId) => {
+    const viaje = await repository.buscarPorUsuario(viajeId, usuarioId);
     if (!viaje) throw new AppError(404, "No se encontró el viaje");
     if (!viaje.itinerarioSeleccionadoId) throw new AppError(409, "Primero elegí una alternativa de itinerario");
     return viaje.itinerarios.find((item) => item.id === viaje.itinerarioSeleccionadoId);
