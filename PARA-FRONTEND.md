@@ -31,6 +31,7 @@ Todas las rutas reciben JSON. En `fetch`, incluir `Content-Type: application/jso
 | Acción | Método y ruta | Cuerpo | Respuesta útil |
 | --- | --- | --- | --- |
 | Crear cuenta | `POST /usuarios/registro` | `{ "nombre": "Ana", "email": "ana@example.com", "contraseña": "frase de al menos 15 caracteres" }` | `201`: `{ mensaje, usuario: { id, nombre, email } }` |
+| Reenviar verificación | `POST /usuarios/reenviar-verificacion` | `{ "email": "ana@example.com" }` | `200`: `{ mensaje }` |
 | Confirmar correo | `POST /usuarios/confirmar-correo` | `{ "token": "token de 64 caracteres hexadecimales" }` | `200`: `{ mensaje, usuario: { id, correo } }` |
 | Iniciar sesión | `POST /usuarios/login` | `{ "email": "ana@example.com", "contraseña": "frase de al menos 15 caracteres" }` | `200`: `{ mensaje, token, tipo: "Bearer", usuario }` |
 | Consultar sesión | `GET /usuarios/me` | Sin cuerpo | `200`: `{ usuario }` |

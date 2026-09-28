@@ -11,6 +11,26 @@ services:
         value: 0.0.0.0
       - key: CORS_ORIGINS
         value: http://localhost:5173
+      - key: DATABASE_URL
+        sync: false
+      - key: GEODB_RAPIDAPI_KEY
+        sync: false
+      - key: ORS_API_KEY
+        sync: false
+      - key: UNSPLASH_ACCESS_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: EMAIL_VERIFICATION_PATH
+        value: /confirmar-correo
       - key: PRINT_VERIFICATION_TOKENS
         value: "false"
       - key: RETURN_VERIFICATION_TOKENS
