@@ -2,6 +2,16 @@
 
 Backend de la aplicación SmartTrip (Express y CommonJS).
 
+## 📚 Documentación del Proyecto
+
+El proyecto cuenta con documentación estandarizada bajo normas internacionales para usuarios y desarrolladores:
+
+* 📖 [**Manual de Usuario (Norma ISO/IEC/IEEE 26514)**](docs/MANUAL_DE_USUARIO.md): Guía de tareas y FAQs para el usuario final (planificación, cálculo de rutas, presupuestos y resolución de problemas).
+* 🛠️ [**Manual Técnico y Guía de Testing (IEEE 829 / ISO 29119-3 / ISO 12207)**](docs/MANUAL_TECNICO.md): Arquitectura por capas, stack de versiones, ejecución de pruebas unitarias en Jest, lectura de métricas de cobertura y convenciones del repositorio.
+* 🗺️ [**Especificación de Endpoints y API de Viajes**](docs/API-VIAJES.md): Referencia técnica detallada de requests y responses JSON.
+
+---
+
 ## Configuración
 
 Copiá `.env.example` a `.env` y ajustá las variables para tu entorno. El archivo `.env` se carga al iniciar y no se incluye en Git.
