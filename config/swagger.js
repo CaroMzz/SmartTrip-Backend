@@ -70,9 +70,16 @@ const definition = {
                 }
             },
             Prioridades: {
-                type: "object", required: ["ahorro", "atractivos"], additionalProperties: false,
-                properties: { ahorro: { type: "integer", minimum: 0, maximum: 100, example: 60 }, atractivos: { type: "integer", minimum: 0, maximum: 100, example: 40 } },
-                description: "Los dos valores deben sumar 100."
+                type: "object", additionalProperties: false,
+                properties: {
+                    ahorro: { type: "integer", minimum: 0, maximum: 100, description: "Minimizar costos", example: 30 },
+                    distancia: { type: "integer", minimum: 0, maximum: 100, description: "Reducir kilómetros recorridos", example: 10 },
+                    atractivos: { type: "integer", minimum: 0, maximum: 100, description: "Maximizar lugares turísticos", example: 30 },
+                    alojamiento: { type: "integer", minimum: 0, maximum: 100, description: "Minimizar cambios de alojamiento", example: 10 },
+                    tren: { type: "integer", minimum: 0, maximum: 100, description: "Priorizar tren sobre avión", example: 10 },
+                    panoramicas: { type: "integer", minimum: 0, maximum: 100, description: "Priorizar rutas panorámicas", example: 10 }
+                },
+                description: "Porcentajes de importancia (RF08). Los valores deben sumar 100; los criterios omitidos valen 0, así que también se acepta el formato anterior { ahorro, atractivos }."
             },
             Ciudad: {
                 oneOf: [
