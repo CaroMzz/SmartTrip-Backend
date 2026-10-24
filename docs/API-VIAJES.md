@@ -101,4 +101,4 @@ El reenvio recibe `{ "email": "ana@example.com" }` y responde igual si la cuenta
 
 ## Estado de persistencia
 
-El repositorio de viajes y las sesiones siguen en memoria: se reinician junto con el servidor. La configuración de conexión a PostgreSQL y el comando de inspección de solo lectura ya están preparados; la implementación sobre Supabase debe ajustarse al esquema existente del equipo antes de guardar datos allí.
+Los repositorios de usuarios y viajes guardan usuarios, sesiones, viajes, alternativas y calendarios en PostgreSQL, en el esquema `smarttrip`. La conexión requiere `DATABASE_URL`. `npm run db:inspect` consulta tablas y columnas sin modificarlas; `npm run db:migrate` aplica cambios al esquema y debe revisarse antes de ejecutarse.

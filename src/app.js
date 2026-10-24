@@ -10,10 +10,23 @@ const AppError = require("../services/appError");
 const usuarioRoutes = require("../routes/usuarioRoutes");
 const viajeRoutes = require("../routes/viajeRoutes");
 const destinoRoutes = require("../routes/destinoRoutes");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("../config/swagger");
 
 const app = express();
 
 app.use(express.json({ limit: "256kb" }));
+app.get("/api-docs.json", (req, res) => res.json(swaggerSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    swaggerOptions: {
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
+        docExpansion: "list",
+        tryItOutEnabled: true
+    }
+}));
 app.use((req, res, next) => {
     const origen = req.headers.origin;
     if (origen && config.origenesCors.includes(origen)) {

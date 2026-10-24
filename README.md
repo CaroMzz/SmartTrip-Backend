@@ -4,7 +4,16 @@ Backend de la aplicación SmartTrip (Express y CommonJS).
 
 ## Configuración
 
-Copiá `.env.example` a `.env` y ajustá las variables para tu entorno. El archivo `.env` se carga al iniciar y no se incluye en Git.
+Copiá `.env.example` a `.env` y ajustá las variables para tu entorno. El archivo `.env` se carga al iniciar y no se incluye en Git. Para que el backend arranque y persista los datos, configurá `DATABASE_URL` con la URI de PostgreSQL de Supabase. La URI y las demás credenciales deben quedar solo en `.env` o en las variables del servicio de despliegue.
+
+Antes de iniciar el backend, comprobá la conexión y las tablas del esquema `smarttrip`:
+
+```bash
+npm run db:inspect
+npm start
+```
+
+El comando de inspección es de solo lectura. `npm run db:migrate` aplica cambios al esquema; revisá `scripts/migrateDatabase.js` y asegurate de tener una copia de seguridad antes de ejecutarlo.
 
 | Variable | Uso | Valor por defecto |
 | --- | --- | --- |
@@ -21,9 +30,11 @@ Copiá `.env.example` a `.env` y ajustá las variables para tu entorno. El archi
 
 Iniciá el backend con `npm start`. Los valores numéricos deben ser enteros positivos y la opción para imprimir tokens acepta `true` o `false`.
 
-## Autenticación en desarrollo
+## Autenticación y persistencia
 
-El flujo permite registro, inicio de sesión y confirmación de correo. El email se envía al configurar SMTP; sin credenciales, se puede consultar el token solo en desarrollo local. **Los datos viven solo en memoria:** se borran cuando se reinicia el servidor. La integración PostgreSQL se ajustará al esquema compartido cuando se conozcan los datos de conexión.
+El flujo permite registro, inicio de sesión, confirmación de correo, actualización del perfil, cambio de contraseña y cierre de sesión. Usuarios, verificaciones, sesiones, viajes e itinerarios se guardan en PostgreSQL, en el esquema `smarttrip`; no se pierden al reiniciar el proceso del backend. La conexión es obligatoria y se configura mediante `DATABASE_URL`.
+
+El correo de verificación se envía cuando SMTP está configurado. En desarrollo local, si SMTP no está configurado, las cuentas se marcan como verificadas para permitir probar la aplicación. `PRINT_VERIFICATION_TOKENS` y `RETURN_VERIFICATION_TOKENS` son opciones de desarrollo y no deben activarse en un entorno publicado.
 
 Para mostrar el token de confirmación localmente en la consola del servidor, cambiá `PRINT_VERIFICATION_TOKENS` a `true` en `.env` o habilitá la variable solo durante la ejecución. En PowerShell:
 
@@ -75,11 +86,11 @@ El token vence a las 24 horas y solo puede usarse una vez.
 }
 ```
 
-Devuelve un token de sesión temporal (Bearer) cuando las credenciales son correctas y el correo está confirmado. Las sesiones también se pierden al reiniciar el servidor.
+Devuelve un token de sesión temporal (Bearer) cuando las credenciales son correctas y el correo está confirmado. Se almacena el hash del token de sesión en PostgreSQL; el token vence según `SESSION_TTL_MS`.
 
 ### Consultar la sesión
 
-`GET /usuarios/me` requiere el token devuelto por el login en el encabezado `Authorization: Bearer <token>`. La sesión vence a las 8 horas. Este endpoint sirve como ejemplo de cómo proteger futuras rutas.
+`GET /usuarios/me` requiere el token devuelto por el login en el encabezado `Authorization: Bearer <token>`. La sesión vence a las 8 horas por defecto. Las rutas de viajes y destinos también requieren autenticación.
 
 ## Token de confirmacion recibido por React
 
@@ -87,6 +98,6 @@ Para desarrollo local, si quieres que el navegador reciba el token directamente,
 
 ## API de viajes y destinos
 
-Los endpoints del prototipo para perfil, viajes, alternativas, mapa, calendario, presupuesto y destinos estan documentados en [`docs/API-VIAJES.md`](docs/API-VIAJES.md). Los datos de usuarios, sesiones y viajes siguen en memoria hasta conectar el repositorio al esquema Supabase compartido. La búsqueda de ciudades necesita `GEODB_RAPIDAPI_KEY`; las rutas en auto mejoran con `ORS_API_KEY`.
+Los endpoints para perfil, viajes, alternativas, recorrido, calendario, presupuesto y destinos están documentados en [`docs/API-VIAJES.md`](docs/API-VIAJES.md). El backend persiste esos datos en PostgreSQL. La búsqueda de ciudades necesita `GEODB_RAPIDAPI_KEY`; las rutas en auto usan OpenRouteService cuando se configura `ORS_API_KEY` y, si no está disponible, recurren a una aproximación geográfica.
 
-Para preparar la conexión PostgreSQL, guarda la URI de Supabase como `DATABASE_URL` en `.env` y ejecuta `npm run db:inspect`. Ese comando solo lista las tablas y columnas del esquema `public`; no crea ni modifica objetos.
+La configuración de Render está en [`render.yaml`](render.yaml). El despliegue todavía requiere cargar allí las variables secretas y configurar `CORS_ORIGINS` y `FRONTEND_URL` con la URL real del frontend.

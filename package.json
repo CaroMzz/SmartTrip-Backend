@@ -25,6 +25,8 @@
     "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
     "nodemailer": "^10.0.11",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   }
 }
