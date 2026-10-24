@@ -19,6 +19,7 @@
    - 6.3 Modo Watch e Inspección Continua
    - 6.4 Generación y Lectura del Reporte de Cobertura
    - 6.5 Catálogo de Suites de Prueba Existentes
+   - 6.6 Pruebas del Frontend (React + Vitest + React Testing Library)
 7. [Documentación de APIs y Colección de Endpoints](#7-documentación-de-apis-y-colección-de-endpoints)
 
 ---
@@ -267,6 +268,45 @@ npm run test:coverage
 6. **`emailService.test.js`:**
    * Envío simulado en entorno de desarrollo.
    * Construcción de plantillas de confirmación con URLs dinámicas.
+
+### 6.6 Pruebas del Frontend (React + Vitest + React Testing Library)
+
+En cumplimiento de la norma **IEEE 829 / ISO 29119-3**, el frontend (`SmartTrip-Frontend`) posee su propia suite de pruebas unitarias y de integración para validar la interfaz de usuario, navegación y servicios API.
+
+#### Ejecución de Pruebas en el Frontend:
+```bash
+cd SmartTrip-Frontend
+npm test
+```
+
+#### Suites de Prueba del Frontend (`src/__tests__/`):
+* **`Faq.test.jsx` (Centro de Ayuda y FAQ - ISO/IEC/IEEE 26514):**
+  * Verificación de renderizado de insignias normativas y título.
+  * Comportamiento interactivo de acordeones (apertura y cierre de respuestas atómicas).
+  * Filtro reactivo en tiempo real mediante el input de búsqueda.
+  * Filtrado por categorías de tarea (*Planificar Viaje*, *Presupuesto*, *Problemas*, etc.).
+  * Manejo del estado vacío ante términos inexistentes.
+* **`Login.test.jsx` (Autenticación y Formularios):**
+  * Validación de renderizado de campos de correo y contraseña.
+  * Verificación de enlaces de navegación pública (Registro y Centro de Ayuda).
+  * Envío de formulario y navegación exitosa.
+* **`Registration.test.jsx` (Alta de Usuarios):**
+  * Validación de campos obligatorios (nombre, correo, contraseñas coincidentes).
+* **`Sidebar.test.jsx` (Navegación y Estados de Interfaz):**
+  * Presencia de la marca y enlaces a módulos internos y de ayuda.
+  * Marcado dinámico de la clase `.active` según la ruta URL actual.
+* **`api.test.js` (Módulo Cliente HTTP):**
+  * Simulación de llamadas REST (`fetch`) para `registrar`, `iniciarSesion`, `confirmarCorreo` y `obtenerMiPerfil`.
+  * Verificación de cabeceras de autorización (`Bearer <token>`) y manejo de errores HTTP.
+
+### 6.7 Panel de Gestión y Reporte en la Nube (Qase TestOps)
+
+Los casos de prueba formalizados, precondiciones y la trazabilidad de ejecución según **IEEE 829 / ISO 29119-3** están sincronizados y accesibles públicamente en la plataforma **Qase**:
+
+* 🌐 **URL del Proyecto en Qase:** [https://app.qase.io/project/ST](https://app.qase.io/project/ST)
+* 📊 **Reporte de Ejecución (Test Run #1 - 100% Passed):** [https://app.qase.io/run/ST/dashboard/1](https://app.qase.io/run/ST/dashboard/1)
+* **Total de casos gestionados:** 18 casos divididos en 4 suites modulares (Autenticación, Itinerarios, FAQ y Frontend).
+* **Métrica de éxito:** 100% Passed (18/18 pruebas aprobadas).
 
 ---
 

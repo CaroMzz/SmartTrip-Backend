@@ -8,6 +8,7 @@ El proyecto cuenta con documentación estandarizada bajo normas internacionales 
 
 * 📖 [**Manual de Usuario (Norma ISO/IEC/IEEE 26514)**](docs/MANUAL_DE_USUARIO.md): Guía de tareas y FAQs para el usuario final (planificación, cálculo de rutas, presupuestos y resolución de problemas).
 * 🛠️ [**Manual Técnico y Guía de Testing (IEEE 829 / ISO 29119-3 / ISO 12207)**](docs/MANUAL_TECNICO.md): Arquitectura por capas, stack de versiones, ejecución de pruebas unitarias en Jest, lectura de métricas de cobertura y convenciones del repositorio.
+* 🧪 [**Panel de Pruebas y Casos en Qase (IEEE 829)**](https://app.qase.io/project/ST): Suites de prueba, casos formalizados y ejecución de regresión 100% aprobada ([Ver Test Run #1](https://app.qase.io/run/ST/dashboard/1)).
 * 🗺️ [**Especificación de Endpoints y API de Viajes**](docs/API-VIAJES.md): Referencia técnica detallada de requests y responses JSON.
 
 ---
