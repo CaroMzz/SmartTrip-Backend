@@ -1,6 +1,7 @@
 const repository = require("../repositories/viajeRepository");
 const AppError = require("./appError");
 const catalogoDestinos = require("./catalogoDestinos");
+const prioridades = require("./prioridades");
 
 const paisesValidos = (paises) => Array.isArray(paises)
     && paises.length >= 1
@@ -128,12 +129,9 @@ const datosViaje = (datos, base = {}) => {
         } else resultado.transportePreferido = datos.transportePreferido;
     }
     if (Object.hasOwn(datos, "prioridades")) {
-        const { ahorro, atractivos } = datos.prioridades || {};
-        if (!Number.isInteger(ahorro) || !Number.isInteger(atractivos)
-            || ahorro < 0 || ahorro > 100 || atractivos < 0 || atractivos > 100
-            || ahorro + atractivos !== 100) {
-            errores.prioridades = "Las prioridades de ahorro y atractivos deben ser enteros que sumen 100";
-        } else resultado.prioridades = { ahorro, atractivos };
+        const validacion = prioridades.validar(datos.prioridades);
+        if (validacion.error) errores.prioridades = validacion.error;
+        else resultado.prioridades = validacion.prioridades;
     }
 
     const requeridos = ["nombre", "paises", "ciudades", "fechaInicio", "duracionDias", "cantidadPersonas"];
@@ -160,7 +158,7 @@ const vistaPublica = (viaje) => {
         presupuestoTotal: viaje.presupuestoTotal ?? null,
         moneda: viaje.moneda || "USD",
         transportePreferido: viaje.transportePreferido || null,
-        prioridades: viaje.prioridades || { ahorro: 60, atractivos: 40 },
+        prioridades: viaje.prioridades || { ...prioridades.POR_DEFECTO },
         estado: viaje.estado,
         itinerarios: viaje.itinerarios || [],
         itinerarioSeleccionadoId: viaje.itinerarioSeleccionadoId || null,

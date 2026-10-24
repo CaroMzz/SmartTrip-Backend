@@ -107,4 +107,17 @@ const buscarCiudad = (nombre, pais = null) => {
 
 const obtenerCiudad = (id) => ciudades.find((ciudad) => ciudad.idExterno === id) || null;
 
-module.exports = { ciudades, listarPaises, obtenerPais, buscarCiudades, buscarCiudad, obtenerCiudad, normalizar };
+// Tramos considerados panorámicos para el criterio "priorizar rutas panorámicas" (RF08).
+// Ninguna API del proyecto provee este dato: es una lista curada por el equipo y se puede ampliar.
+const tramosPanoramicos = new Set([
+    ["Zurich", "Ginebra"], ["Munich", "Salzburgo"], ["Salzburgo", "Viena"], ["Praga", "Cesky Krumlov"],
+    ["Barcelona", "Niza"], ["Londres", "Edimburgo"], ["Lisboa", "Oporto"], ["Tokio", "Kioto"],
+    ["Lima", "Cusco"], ["Ciudad del Cabo", "Johannesburgo"], ["Sidney", "Melbourne"]
+].map((par) => par.map(normalizar).sort().join("|")));
+
+const esTramoPanoramico = (origen, destino) =>
+    tramosPanoramicos.has([normalizar(origen), normalizar(destino)].sort().join("|"));
+
+module.exports = {
+    ciudades, listarPaises, obtenerPais, buscarCiudades, buscarCiudad, obtenerCiudad, normalizar, esTramoPanoramico
+};

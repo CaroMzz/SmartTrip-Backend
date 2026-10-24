@@ -1,3 +1,6 @@
+/*logica de cuentas : registra usuarios, compara contraseñas , inocia sesion
+y verifica correos y actualiza*/
+
 const bcrypt = require("bcryptjs");
 const { createHash, randomBytes } = require("node:crypto");
 const config = require("../config");
@@ -14,17 +17,13 @@ const perfilPublico = (usuario) => ({
 const registrarUsuario = async (nombre, correo, contrasena) => {
     const correoNormalizado = correo.trim().toLowerCase();
     const contrasenaHash = await bcrypt.hash(contrasena, config.rondasBcrypt);
-    // En desarrollo local sin SMTP, permitir probar el resto de la aplicación
-    // sin dejar la cuenta bloqueada esperando un email que no se puede enviar.
-    const smtpConfigurado = Boolean(config.smtpHost && config.smtpUser && config.smtpPassword && config.smtpFrom);
-    const verificarEnDesarrollo = process.env.NODE_ENV !== "production" && !smtpConfigurado;
     let usuario;
     try {
         usuario = await repository.crearUsuario({
             nombre: nombre.trim(),
             correo: correoNormalizado,
             contrasena_hash: contrasenaHash,
-            correo_verificado_en: verificarEnDesarrollo ? new Date().toISOString() : null,
+            correo_verificado_en: null,
             preferencias: { transportePreferido: null, prioridades: { ahorro: 60, atractivos: 40 } }
         });
     } catch (error) {

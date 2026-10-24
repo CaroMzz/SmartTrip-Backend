@@ -1,5 +1,7 @@
+/*recibe las peticiones , valida los datos y devuelve respuestas http*/
 const usuarioService = require("../services/usuarioService");
 const emailService = require("../services/emailService");
+const prioridades = require("../services/prioridades");
 const config = require("../config");
 
 const cuerpoJson = (req, res) => {
@@ -176,13 +178,9 @@ const actualizarPerfil = async (req, res) => {
         cambios.transportePreferido = datos.transportePreferido;
     }
     if (Object.hasOwn(datos, "prioridades")) {
-        const { ahorro, atractivos } = datos.prioridades || {};
-        if (!Number.isInteger(ahorro) || !Number.isInteger(atractivos)
-            || ahorro < 0 || ahorro > 100 || atractivos < 0 || atractivos > 100
-            || ahorro + atractivos !== 100) {
-            return res.status(400).json({ mensaje: "Las prioridades de ahorro y atractivos deben sumar 100" });
-        }
-        cambios.prioridades = { ahorro, atractivos };
+        const validacion = prioridades.validar(datos.prioridades);
+        if (validacion.error) return res.status(400).json({ mensaje: validacion.error });
+        cambios.prioridades = validacion.prioridades;
     }
     if (!Object.keys(cambios).length) {
         return res.status(400).json({ mensaje: "Indicá al menos un campo para actualizar" });

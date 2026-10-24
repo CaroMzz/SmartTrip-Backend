@@ -49,6 +49,11 @@ module.exports = Object.freeze({
         avionPorPersonaKmUsd: leerNumeroNoNegativo("ESTIMATED_FLIGHT_PER_KM_USD", 0.18),
         autoPorKmUsd: leerNumeroNoNegativo("ESTIMATED_CAR_PER_KM_USD", 0.18)
     }),
+    // Algoritmo de itinerarios: una ciudad a menos de esta distancia del alojamiento actual
+    // puede visitarse como excursión de día, sin cambiar de alojamiento.
+    radioExcursionKm: leerNumeroNoNegativo("EXCURSION_MAX_KM", 120),
+    // Tramos hasta esta distancia se consideran aptos para tren (criterio "priorizar tren").
+    tramoTrenMaxKm: leerNumeroNoNegativo("TRAIN_MAX_LEG_KM", 700),
     rondasBcrypt: leerEnteroPositivo("BCRYPT_ROUNDS", 12),
     duracionTokenVerificacionMs: leerEnteroPositivo("VERIFICATION_TOKEN_TTL_MS", 24 * 60 * 60 * 1000),
     duracionSesionMs: leerEnteroPositivo("SESSION_TTL_MS", 8 * 60 * 60 * 1000),

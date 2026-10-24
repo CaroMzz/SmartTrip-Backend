@@ -1,9 +1,9 @@
 const pool = require("../src/database/pool");
+const prioridades = require("../services/prioridades");
 
-const prioridadesDesdeFila = (fila) => ({
-    ahorro: Number(fila?.minimizar_costo ?? 60),
-    atractivos: Number(fila?.maximizar_turismo ?? 40)
-});
+// Si el usuario todavía no tiene fila en preferencia, la columna viene en null.
+const prioridadesDesdeFila = (fila) => prioridades.desdeFila(fila?.minimizar_costo == null ? null : fila);
+const columnasPreferencia = prioridades.COLUMNAS.join(", ");
 
 const mapearUsuario = (fila) => fila ? ({
     id: String(fila.id),
@@ -20,7 +20,7 @@ const mapearUsuario = (fila) => fila ? ({
 
 const consultarUsuario = async (columna, valor) => {
     const resultado = await pool.query(`
-        SELECT u.*, p.minimizar_costo, p.maximizar_turismo
+        SELECT u.*, ${prioridades.COLUMNAS.map((columna) => `p.${columna}`).join(", ")}
         FROM smarttrip.usuario u
         LEFT JOIN smarttrip.preferencia p
           ON p."FK_usuario_id" = u.id AND p."FK_viaje_id" IS NULL
@@ -40,14 +40,14 @@ const crearUsuario = async (datos) => {
             RETURNING *
         `, [datos.nombre, datos.correo, datos.contrasena_hash, datos.correo_verificado_en]);
         const usuario = insertado.rows[0];
-        const preferencias = datos.preferencias?.prioridades || { ahorro: 60, atractivos: 40 };
-        await cliente.query(`
-            INSERT INTO smarttrip.preferencia (
-                "FK_usuario_id", minimizar_costo, maximizar_turismo
-            ) VALUES ($1, $2, $3)
-        `, [usuario.id, preferencias.ahorro, preferencias.atractivos]);
+        const valores = prioridades.comoParametros(datos.preferencias?.prioridades);
+        const preferencia = await cliente.query(`
+            INSERT INTO smarttrip.preferencia ("FK_usuario_id", ${columnasPreferencia})
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING ${columnasPreferencia}
+        `, [usuario.id, ...valores]);
         await cliente.query("COMMIT");
-        return mapearUsuario({ ...usuario, minimizar_costo: preferencias.ahorro, maximizar_turismo: preferencias.atractivos });
+        return mapearUsuario({ ...usuario, ...preferencia.rows[0] });
     } catch (error) {
         await cliente.query("ROLLBACK");
         if (error.code === "23505") {
@@ -82,25 +82,22 @@ const guardarUsuario = async (usuario) => {
             await cliente.query("ROLLBACK");
             return null;
         }
-        const prioridades = usuario.preferencias?.prioridades || { ahorro: 60, atractivos: 40 };
-        const preferenciaActualizada = await cliente.query(`
+        const valores = prioridades.comoParametros(usuario.preferencias?.prioridades);
+        let preferencia = await cliente.query(`
             UPDATE smarttrip.preferencia
-            SET minimizar_costo = $2,
-                maximizar_turismo = $3,
-                reducir_distancia = 0,
-                minimizar_cambios_alojamiento = 0,
-                priorizar_tren = 0,
-                priorizar_rutas_panoramicas = 0
+            SET ${prioridades.COLUMNAS.map((columna, i) => `${columna} = $${i + 2}`).join(", ")}
             WHERE "FK_usuario_id" = $1 AND "FK_viaje_id" IS NULL
-        `, [usuario.id, prioridades.ahorro, prioridades.atractivos]);
-        if (!preferenciaActualizada.rowCount) {
-            await cliente.query(`
-                INSERT INTO smarttrip.preferencia ("FK_usuario_id", minimizar_costo, maximizar_turismo)
-                VALUES ($1, $2, $3)
-            `, [usuario.id, prioridades.ahorro, prioridades.atractivos]);
+            RETURNING ${columnasPreferencia}
+        `, [usuario.id, ...valores]);
+        if (!preferencia.rowCount) {
+            preferencia = await cliente.query(`
+                INSERT INTO smarttrip.preferencia ("FK_usuario_id", ${columnasPreferencia})
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING ${columnasPreferencia}
+            `, [usuario.id, ...valores]);
         }
         await cliente.query("COMMIT");
-        return mapearUsuario({ ...actualizado.rows[0], minimizar_costo: prioridades.ahorro, maximizar_turismo: prioridades.atractivos });
+        return mapearUsuario({ ...actualizado.rows[0], ...preferencia.rows[0] });
     } catch (error) {
         await cliente.query("ROLLBACK");
         throw error;

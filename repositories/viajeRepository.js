@@ -2,10 +2,7 @@ const pool = require("../src/database/pool");
 const catalogo = require("../services/catalogoDestinos");
 const AppError = require("../services/appError");
 
-const prioridadesDesdeFila = (fila) => ({
-    ahorro: Number(fila?.minimizar_costo ?? 60),
-    atractivos: Number(fila?.maximizar_turismo ?? 40)
-});
+const prioridades = require("../services/prioridades");
 
 const codigoPais = (nombre) => catalogo.obtenerPais(nombre)?.codigo || null;
 
@@ -88,21 +85,17 @@ const persistirPaisesYDestinos = async (cliente, viaje) => {
 };
 
 const guardarPreferenciasViaje = async (cliente, viaje) => {
-    const prioridades = viaje.prioridades || { ahorro: 60, atractivos: 40 };
     await cliente.query("DELETE FROM smarttrip.preferencia WHERE \"FK_viaje_id\" = $1", [viaje.id]);
     await cliente.query(`
-        INSERT INTO smarttrip.preferencia (
-            "FK_viaje_id", minimizar_costo, reducir_distancia, maximizar_turismo,
-            minimizar_cambios_alojamiento, priorizar_tren, priorizar_rutas_panoramicas
-        ) VALUES ($1, $2, 0, $3, 0, 0, 0)
-    `, [viaje.id, prioridades.ahorro, prioridades.atractivos]);
+        INSERT INTO smarttrip.preferencia ("FK_viaje_id", ${prioridades.COLUMNAS.join(", ")})
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [viaje.id, ...prioridades.comoParametros(viaje.prioridades)]);
 };
 
 const armarViaje = async (cliente, id, usuarioId) => {
     const cabecera = await cliente.query(`
-        SELECT v.*, t.tipo AS transporte_tipo, pu.minimizar_costo AS perfil_ahorro,
-               pu.maximizar_turismo AS perfil_turismo, pv.minimizar_costo AS viaje_ahorro,
-               pv.maximizar_turismo AS viaje_turismo,
+        SELECT v.*, t.tipo AS transporte_tipo, to_jsonb(pu) AS preferencia_perfil,
+               to_jsonb(pv) AS preferencia_viaje,
                (SELECT i.id FROM smarttrip.itinerario i
                 WHERE i."FK_viaje_id" = v.id AND i.seleccionado = true LIMIT 1) AS itinerario_seleccionado_id
         FROM smarttrip.viaje v
@@ -134,9 +127,7 @@ const armarViaje = async (cliente, id, usuarioId) => {
         `, [id])
     ]);
 
-    const preferenciasViaje = fila.viaje_ahorro === null || fila.viaje_ahorro === undefined
-        ? prioridadesDesdeFila({ minimizar_costo: fila.perfil_ahorro, maximizar_turismo: fila.perfil_turismo })
-        : prioridadesDesdeFila({ minimizar_costo: fila.viaje_ahorro, maximizar_turismo: fila.viaje_turismo });
+    const preferenciasViaje = prioridades.desdeFila(fila.preferencia_viaje || fila.preferencia_perfil);
     const alternativas = itinerarios.rows.map((item) => {
         const detalle = item.detalle_json || {};
         return { ...detalle, id: String(item.id) };
@@ -290,7 +281,7 @@ const guardarItinerarios = async (id, usuarioId, itinerarios) => {
                     cambios_alojamiento, seleccionado
                 ) VALUES ($1, 1, $2, $3, $4, $5, false) RETURNING id
             `, [id, nombre, alternativa.puntaje ?? null, alternativa.metricas?.puntajeTuristico ?? null,
-                Math.max(0, destinosRuta.length - 1)]);
+                alternativa.metricas?.cambiosAlojamiento ?? Math.max(0, destinosRuta.length - 1)]);
             const itinerarioId = String(fila.rows[0].id);
             const detalle = { ...alternativa, id: itinerarioId };
             await cliente.query("UPDATE smarttrip.itinerario SET detalle_json = $2::jsonb WHERE id = $1", [itinerarioId, JSON.stringify(detalle)]);
