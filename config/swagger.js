@@ -21,7 +21,8 @@ const definition = {
         version: "1.0.0",
         description: "API REST de SmartTrip. Los datos se envían y reciben en JSON. Para rutas protegidas, inicia sesión y autoriza el token Bearer usando el botón **Authorize**."
     },
-    servers: [{ url: `http://localhost:${process.env.PORT || 3000}`, description: "Servidor local" }],
+    // Ruta relativa: Swagger llama al mismo servidor que sirve la página (local o Render).
+    servers: [{ url: "/", description: "Este servidor" }],
     tags: [
         { name: "Estado", description: "Estado del backend" },
         { name: "Usuarios", description: "Registro, acceso, perfil y sesión" },
