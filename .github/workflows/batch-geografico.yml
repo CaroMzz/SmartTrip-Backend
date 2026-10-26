@@ -1,0 +1,24 @@
+# Batch de información geográfica (RF23 / RNF16): actualiza las fichas de las ciudades
+# en Supabase una vez por día. El horario se cambia editando la expresión cron (en UTC).
+name: Batch geográfico
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # todos los días a las 06:00 UTC (03:00 en Argentina)
+  workflow_dispatch: # permite ejecutarlo a mano desde la pestaña Actions
+
+jobs:
+  actualizar-destinos:
+    runs-on: ubuntu-latest
+    # RNF16: la ejecución no debe superar los 10 minutos.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run batch:geo
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -3,37 +3,7 @@ const catalogo = require("../services/catalogoDestinos");
 const AppError = require("../services/appError");
 
 const prioridades = require("../services/prioridades");
-
-const codigoPais = (nombre) => catalogo.obtenerPais(nombre)?.codigo || null;
-
-const obtenerPaisId = async (cliente, nombre) => {
-    const pais = catalogo.obtenerPais(nombre);
-    if (!pais) throw new AppError(422, `El país "${nombre}" no está en el catálogo local. Elegí uno de los países sugeridos.`);
-    const resultado = await cliente.query(`
-        INSERT INTO smarttrip.pais (codigo_iso, nombre, proveedor, actualizado_fuente_en)
-        VALUES ($1, $2, 'Catálogo local SmartTrip', now())
-        ON CONFLICT (codigo_iso) DO UPDATE
-        SET nombre = EXCLUDED.nombre, proveedor = EXCLUDED.proveedor, actualizado_fuente_en = now()
-        RETURNING id
-    `, [pais.codigo, pais.nombre]);
-    return { id: resultado.rows[0].id, ...pais };
-};
-
-const obtenerDestinoId = async (cliente, ciudad, pais) => {
-    const nombre = ciudad.nombre.trim();
-    const resultado = await cliente.query(`
-        INSERT INTO smarttrip.destino AS d (
-            "FK_pais_id", nombre, identificador_externo, latitud, longitud, proveedor, actualizado_fuente_en
-        ) VALUES ($1, $2, $3, $4, $5, 'Catálogo local SmartTrip', now())
-        ON CONFLICT ("FK_pais_id", nombre) DO UPDATE SET
-            identificador_externo = COALESCE(EXCLUDED.identificador_externo, d.identificador_externo),
-            latitud = COALESCE(EXCLUDED.latitud, d.latitud),
-            longitud = COALESCE(EXCLUDED.longitud, d.longitud),
-            actualizado_fuente_en = now()
-        RETURNING id
-    `, [pais.id, nombre, ciudad.idExterno || null, ciudad.latitud, ciudad.longitud]);
-    return resultado.rows[0].id;
-};
+const { obtenerPaisId, obtenerDestinoId } = require("./destinoRepository");
 
 const obtenerTransporteId = async (cliente, tipo) => {
     if (!tipo) return null;
@@ -115,7 +85,7 @@ const armarViaje = async (cliente, id, usuarioId) => {
         `, [id]),
         cliente.query(`
             SELECT d.id, d.nombre, d.identificador_externo, d.latitud, d.longitud, d."FK_pais_id",
-                   p.nombre AS pais, d.proveedor
+                   p.nombre AS pais, d.proveedor, d.puntaje_turistico, d.dias_sugeridos
             FROM smarttrip.viaje_destino vd
             JOIN smarttrip.destino d ON d.id = vd."FK_destino_id"
             JOIN smarttrip.pais p ON p.id = vd."FK_pais_id"
@@ -145,7 +115,9 @@ const armarViaje = async (cliente, id, usuarioId) => {
             pais: destino.pais,
             latitud: destino.latitud === null ? null : Number(destino.latitud),
             longitud: destino.longitud === null ? null : Number(destino.longitud),
-            puntajeTuristico: null,
+            // Cargados por el batch geográfico; null si la ciudad todavía no se procesó.
+            puntajeTuristico: destino.puntaje_turistico === null ? null : Number(destino.puntaje_turistico),
+            diasSugeridos: destino.dias_sugeridos === null ? null : Number(destino.dias_sugeridos),
             orden: indice
         })),
         fechaInicio: fila.fecha_inicio.toISOString ? fila.fecha_inicio.toISOString().slice(0, 10) : String(fila.fecha_inicio).slice(0, 10),

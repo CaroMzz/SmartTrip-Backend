@@ -235,7 +235,7 @@ const puntuar = (valores, pesos) =>
 
 // Huella de las métricas: dos recorridos espejados (A→B→C y C→B→A) tienen la misma.
 const huella = (candidato) => Object.values(candidato.criterios).map((valor) => Math.round(valor)).join(",")
-    + `|${candidato.dias.join(",")}`;
+    + "|" + candidato.orden.map((ciudad, i) => `${ciudad.nombre}:${candidato.dias[i]}`).sort().join(",");
 
 // Prefiere un candidato con métricas distintas a las ya elegidas; si no queda ninguno,
 // acepta uno que solo cambie el orden (por ejemplo, empezar por la otra punta).

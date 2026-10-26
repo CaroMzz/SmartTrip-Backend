@@ -40,6 +40,9 @@ const migrar = async () => {
                 creado_en timestamptz NOT NULL DEFAULT now(),
                 CHECK (vence_en > creado_en)
             );
+            ALTER TABLE smarttrip.destino
+                ADD COLUMN IF NOT EXISTS puntaje_turistico smallint
+                    CHECK (puntaje_turistico BETWEEN 0 AND 100);
         `);
         await cliente.query("COMMIT");
         console.log("Migración de persistencia aplicada al esquema smarttrip.");

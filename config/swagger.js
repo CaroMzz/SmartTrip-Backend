@@ -172,11 +172,11 @@ const definition = {
             { name: "q", in: "query", required: true, schema: { type: "string", minLength: 2, maxLength: 100 }, example: "Bar" },
             { name: "paises", in: "query", required: false, description: "Hasta 10 códigos ISO 3166-1 alfa-2 separados por coma.", schema: { type: "string", example: "ES,AR" } }
         ], responses: { 200: { description: "Destinos coincidentes" }, 400: errorResponses[400], 401: errorResponses[401], 503: { description: "Servicio de búsqueda no disponible o con límite temporal" } } } },
-        "/destinos/{id}": { get: { tags: ["Destinos"], summary: "Obtener detalle de un destino", security: secured, parameters: [
+        "/destinos/{id}": { get: { tags: ["Destinos"], summary: "Ficha de un destino (RF16)", description: "Para ciudades del catálogo (id \"local-...\", por ejemplo local-PE-cusco) devuelve descripción, fotos, puntosInteres (atracciones, museos, monumentos, parques, restaurantes), puntajeTuristico y tiempoSugeridoDias, cargados por el batch geográfico. Si la ciudad no está en la base se consulta en el momento; \"avisos\" indica qué información no pudo recuperarse y \"categoriasSinDatos\" qué tipos de lugares no tienen resultados.", security: secured, parameters: [
             { name: "id", in: "path", required: true, description: "Identificador externo devuelto por la búsqueda.", schema: { type: "string", maxLength: 80 }, example: "osm-N-12345" },
             { name: "nombre", in: "query", required: false, description: "Nombre del destino; ayuda a resolver identificadores de OpenStreetMap.", schema: { type: "string" }, example: "Barcelona" },
             { name: "pais", in: "query", required: false, schema: { type: "string" }, example: "España" }
-        ], responses: { 200: { description: "Detalle, atractivos y fotos cuando estén disponibles" }, 400: errorResponses[400], 401: errorResponses[401], 404: errorResponses[404], 503: { description: "Servicio externo no disponible o sin configurar" } } } }
+        ], responses: { 200: { description: "Ficha del destino" }, 400: errorResponses[400], 401: errorResponses[401], 404: errorResponses[404], 503: { description: "Servicio externo no disponible o sin configurar" } } } }
     }
 };
 

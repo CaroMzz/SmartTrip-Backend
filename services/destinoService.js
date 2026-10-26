@@ -2,6 +2,8 @@ const AppError = require("./appError");
 const config = require("../config");
 const wikidataService = require("./wikidataService");
 const catalogoDestinos = require("./catalogoDestinos");
+const fichaDestinoService = require("./fichaDestinoService");
+const destinoRepository = require("../repositories/destinoRepository");
 
 const GEO_DB_URL = "https://wft-geo-db.p.rapidapi.com/v1/geo";
 const PHOTON_URL = "https://photon.komoot.io/api/";
@@ -245,6 +247,41 @@ const buscarFotosUnsplash = async (nombre, pais) => {
     })).filter((foto) => foto.url && foto.urlFotografo && foto.urlPublicacion);
 };
 
+const TIPOS_FICHA = { atraccion: "atracciones", museo: "museos", monumento: "monumentos", parque: "parques", restaurante: "restaurantes" };
+
+// Ficha de una ciudad del catálogo (RF16): se lee de la base (cargada por el batch) y, si la
+// ciudad todavía no se procesó, se consulta en el momento a Wikipedia y Wikidata.
+const obtenerFichaCatalogo = async (ciudad) => {
+    const guardada = await destinoRepository.obtenerFicha(ciudad.nombre, ciudad.codigoPais);
+    const { ficha, avisos } = guardada
+        ? { ficha: guardada, avisos: [] }
+        : await fichaDestinoService.construirFicha(ciudad);
+    const puntos = ficha?.puntos || [];
+    const puntosInteres = Object.fromEntries(Object.entries(TIPOS_FICHA)
+        .map(([tipo, clave]) => [clave, puntos.filter((punto) => punto.tipo === tipo)]));
+    const fotos = [
+        ...(ficha?.fotografiaUrl ? [{ url: ficha.fotografiaUrl, textoAlternativo: `Fotografía de ${ciudad.nombre}`, fuente: "Wikipedia" }] : []),
+        ...puntos.filter((punto) => punto.fotografiaUrl).slice(0, 5)
+            .map((punto) => ({ url: punto.fotografiaUrl, textoAlternativo: punto.nombre, fuente: "Wikimedia Commons" }))
+    ];
+    return {
+        ...ciudad,
+        wikiDataId: null,
+        poblacion: null,
+        descripcion: ficha?.descripcion || null,
+        puntosInteres,
+        atractivos: puntosInteres.atracciones,
+        fotos,
+        puntajeTuristico: ficha?.puntajeTuristico ?? null,
+        tiempoSugeridoDias: ficha?.diasSugeridos ?? null,
+        categoriasSinDatos: Object.entries(puntosInteres).filter(([, lista]) => !lista.length).map(([clave]) => clave),
+        fuenteGeografica: ciudad.fuente,
+        fuenteContenido: ficha?.proveedor || null,
+        actualizadoEn: ficha?.actualizadoEn || null,
+        avisos
+    };
+};
+
 const obtener = async (id, nombre, pais) => {
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new AppError(400, "El identificador del destino no es válido");
     const clave = `detalle:${id}:${nombre}:${pais || ""}`;
@@ -253,18 +290,8 @@ const obtener = async (id, nombre, pais) => {
 
     const ciudadLocal = catalogoDestinos.obtenerCiudad(id);
     if (ciudadLocal) {
-        const resultadoLocal = {
-            ...ciudadLocal,
-            wikiDataId: null,
-            poblacion: null,
-            descripcion: null,
-            atractivos: [],
-            fotos: [],
-            puntajeTuristico: null,
-            fuenteGeografica: ciudadLocal.fuente,
-            fuenteContenido: null
-        };
-        guardarCache(clave, resultadoLocal);
+        const resultadoLocal = await obtenerFichaCatalogo(ciudadLocal);
+        if (!resultadoLocal.avisos.length) guardarCache(clave, resultadoLocal);
         return resultadoLocal;
     }
 

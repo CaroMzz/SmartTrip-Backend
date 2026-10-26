@@ -7,6 +7,7 @@
     "start": "node src/app.js",
     "db:inspect": "node scripts/inspectDatabase.js",
     "db:migrate": "node scripts/migrateDatabase.js",
+    "batch:geo": "node scripts/batchGeografico.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
