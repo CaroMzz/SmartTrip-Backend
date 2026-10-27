@@ -56,11 +56,16 @@ const registrarUsuario = async (req, res) => {
             console.info(`[DESARROLLO] Token de confirmación para ${usuario.correo}: ${token}`);
         }
 
+        // Sin SMTP fuera de producción, el servicio deja la cuenta verificada para poder probar la app.
+        const cuentaVerificada = Boolean(usuario.correo_verificado_en);
         const respuesta = {
-            mensaje: correoEnviado
-                ? "Registro creado. Revisá tu correo para confirmar la cuenta."
-                : "Registro creado. El envío de correo todavía no está configurado; podrás reenviar la confirmación cuando esté disponible.",
+            mensaje: cuentaVerificada
+                ? "Registro creado. Tu cuenta ya está activa: podés iniciar sesión."
+                : correoEnviado
+                    ? "Registro creado. Revisá tu correo para confirmar la cuenta."
+                    : "Registro creado. El envío de correo todavía no está configurado; podrás reenviar la confirmación cuando esté disponible.",
             correoEnviado,
+            cuentaVerificada,
             usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.correo }
         };
         if (process.env.NODE_ENV !== "production" && config.devolverTokenVerificacion) respuesta.tokenVerificacion = token;
