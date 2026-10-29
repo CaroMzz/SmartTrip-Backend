@@ -109,7 +109,8 @@ const guardarUsuario = async (usuario) => {
 const guardarVerificacion = async (hash, registro) => {
     const resultado = await pool.query(`
         INSERT INTO smarttrip.verificacion_correo ("FK_usuario_id", token_hash, vence_en, usado_en)
-        VALUES ($1, $2, to_timestamp($3 / 1000.0), CASE WHEN $4 IS NULL THEN NULL ELSE to_timestamp($4 / 1000.0) END)
+        VALUES ($1, $2, to_timestamp($3::numeric / 1000.0),
+                CASE WHEN $4::numeric IS NULL THEN NULL ELSE to_timestamp($4::numeric / 1000.0) END)
         ON CONFLICT (token_hash) DO UPDATE
         SET "FK_usuario_id" = EXCLUDED."FK_usuario_id", vence_en = EXCLUDED.vence_en, usado_en = EXCLUDED.usado_en
         RETURNING id
