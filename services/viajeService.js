@@ -3,6 +3,11 @@ const AppError = require("./appError");
 const catalogoDestinos = require("./catalogoDestinos");
 const prioridades = require("./prioridades");
 
+// Acepta cada país como texto ("Peru") o como el objeto del autocompletado ({ nombre, codigo }).
+const nombresDePaises = (paises) => Array.isArray(paises)
+    ? paises.map((pais) => (pais && typeof pais === "object" ? pais.nombre : pais))
+    : paises;
+
 const paisesValidos = (paises) => Array.isArray(paises)
     && paises.length >= 1
     && paises.length <= 10
@@ -89,8 +94,9 @@ const datosViaje = (datos, base = {}) => {
         else resultado.nombre = nombre;
     }
     if (Object.hasOwn(datos, "paises")) {
-        if (!paisesValidos(datos.paises)) errores.paises = "Indicá entre 1 y 10 países";
-        else resultado.paises = [...new Set(datos.paises.map((pais) => pais.trim()))];
+        const paises = nombresDePaises(datos.paises);
+        if (!paisesValidos(paises)) errores.paises = "Indicá entre 1 y 10 países";
+        else resultado.paises = [...new Set(paises.map((pais) => pais.trim()))];
     }
     if (Object.hasOwn(datos, "ciudadesObligatorias")) {
         const validacion = validarCiudades(datos.ciudadesObligatorias);
