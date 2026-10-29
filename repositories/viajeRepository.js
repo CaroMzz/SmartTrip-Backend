@@ -309,13 +309,13 @@ const guardarItinerarios = async (id, usuarioId, itinerarios) => {
             }
 
             const categorias = alternativa.presupuesto?.categorias || {};
+            // total_usd es una columna generada: la base la calcula sumando las cuatro categorías.
             await cliente.query(`
                 INSERT INTO smarttrip.costo (
-                    "FK_itinerario_id", transporte_usd, hospedaje_usd, alimentacion_usd, atracciones_usd, total_usd
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                    "FK_itinerario_id", transporte_usd, hospedaje_usd, alimentacion_usd, atracciones_usd
+                ) VALUES ($1, $2, $3, $4, $5)
             `, [itinerarioId, categorias.transporte || 0, categorias.hospedaje || 0,
-                categorias.alimentacion || 0, categorias.actividades || 0,
-                alternativa.presupuesto?.totalEstimado ?? null]);
+                categorias.alimentacion || 0, categorias.actividades || 0]);
             guardadas.push(detalle);
         }
         await cliente.query('UPDATE smarttrip.viaje SET estado = $2, actualizado_en = now() WHERE id = $1', [id, "alternativas_generadas"]);
