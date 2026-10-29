@@ -277,6 +277,8 @@ const construirCalendario = (viaje, candidato) => {
             diaActual++;
         }
         estadias.push({
+            // Identificador para pedir la ficha de la ciudad con GET /destinos/:id.
+            idExterno: ciudad.idExterno || catalogoDestinos.buscarCiudad(ciudad.nombre, ciudad.pais)?.idExterno || null,
             nombre: ciudad.nombre,
             pais: ciudad.pais,
             latitud: ciudad.latitud,
