@@ -159,6 +159,20 @@ describe("itinerarioService", () => {
 
             expect(routingService.obtenerRutaEnAuto).toHaveBeenCalled();
         });
+        it("debería generar un itinerario para un viaje de una sola ciudad (DEF-23)", async () => {
+            const unaCiudad = { ...viajeMock, ciudades: [viajeMock.ciudades[0]] };
+            repository.buscarPorUsuario.mockResolvedValue(unaCiudad);
+            repository.guardarItinerarios.mockImplementation(async (vId, uId, alternativas) => ({ ...unaCiudad, itinerarios: alternativas }));
+
+            const itinerarios = await itinerarioService.generar(usuarioId, viajeId);
+
+            expect(itinerarios.length).toBeGreaterThanOrEqual(1);
+            expect(itinerarios[0].tramos).toEqual([]);
+            expect(itinerarios[0].calendario).toHaveLength(unaCiudad.duracionDias);
+            expect(itinerarios[0].ciudades[0]).toMatchObject({ nombre: unaCiudad.ciudades[0].nombre, dias: unaCiudad.duracionDias });
+            expect(Number.isFinite(itinerarios[0].puntaje)).toBe(true);
+        });
+
     });
 
     describe("listar", () => {
@@ -183,20 +197,6 @@ describe("itinerarioService", () => {
     });
 
     describe("seleccionar", () => {
-        it("debería generar un itinerario para un viaje de una sola ciudad (DEF-23)", async () => {
-            const unaCiudad = { ...viajeMock, ciudades: [viajeMock.ciudades[0]] };
-            repository.buscarPorUsuario.mockResolvedValue(unaCiudad);
-            repository.guardarItinerarios.mockImplementation(async (vId, uId, alternativas) => ({ ...unaCiudad, itinerarios: alternativas }));
-
-            const itinerarios = await itinerarioService.generar(usuarioId, viajeId);
-
-            expect(itinerarios.length).toBeGreaterThanOrEqual(1);
-            expect(itinerarios[0].tramos).toEqual([]);
-            expect(itinerarios[0].calendario).toHaveLength(unaCiudad.duracionDias);
-            expect(itinerarios[0].ciudades[0]).toMatchObject({ nombre: unaCiudad.ciudades[0].nombre, dias: unaCiudad.duracionDias });
-            expect(Number.isFinite(itinerarios[0].puntaje)).toBe(true);
-        });
-
         it("debería seleccionar un itinerario existente y devolverlo", async () => {
             const itinerarioElegido = { id: "11", titulo: "Elegido" };
             repository.seleccionarItinerario.mockResolvedValue({
