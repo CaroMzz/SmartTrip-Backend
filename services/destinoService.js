@@ -51,6 +51,14 @@ const solicitarPhoton = async (parametros) => {
     }
 };
 
+// Solo se aceptan lugares con nombre, coordenadas y país del catálogo (el viaje se arma con esos países).
+const lugarDesdePhoton = (feature) => {
+    const ciudad = convertirCiudadPhoton(feature);
+    const pais = ciudad.codigoPais ? catalogoDestinos.obtenerPais(ciudad.codigoPais) : null;
+    if (!pais || !ciudad.nombre || ciudad.latitud === null || ciudad.longitud === null) return null;
+    return { ...ciudad, pais: pais.nombre, codigoPais: pais.codigo };
+};
+
 const convertirCiudadPhoton = (feature) => {
     const propiedades = feature.properties || {};
     const [longitud, latitud] = feature.geometry?.coordinates || [];
@@ -152,57 +160,143 @@ const listarPaisesGeoDb = async (prefijo) => {
     return resultados;
 };
 
+// Con menos de estos resultados en el catálogo, la búsqueda se completa con OpenStreetMap (Photon).
+const MIN_RESULTADOS_CATALOGO = 5;
+
+// Ciudades de Photon dentro de los países del catálogo. Cada una queda en caché para validarla
+// al guardar el viaje y para armar su ficha sin repetir la consulta.
+const buscarPhoton = async (consulta, paises = []) => {
+    const clave = `photon:${catalogoDestinos.normalizar(consulta)}:${paises.join(",")}`;
+    const cacheado = leerCache(clave);
+    if (cacheado) return cacheado;
+    const datos = await solicitarPhoton({ q: consulta, layer: "city", limit: 15 });
+    const resultados = [];
+    for (const feature of datos.features || []) {
+        const lugar = lugarDesdePhoton(feature);
+        if (!lugar || (paises.length && !paises.includes(lugar.codigoPais))) continue;
+        if (resultados.some((item) => item.idExterno === lugar.idExterno)) continue;
+        guardarCache(`lugar:${lugar.idExterno}`, lugar);
+        resultados.push(lugar);
+    }
+    guardarCache(clave, resultados);
+    return resultados;
+};
+
 const buscar = async (prefijo, paises = []) => {
-    return catalogoDestinos.buscarCiudades(prefijo, paises).slice(0, 20);
+    const locales = catalogoDestinos.buscarCiudades(prefijo, paises).slice(0, 20);
+    if (locales.length >= MIN_RESULTADOS_CATALOGO || prefijo.trim().length < 3) return locales;
+    let externas;
+    try {
+        externas = await buscarPhoton(prefijo, paises);
+    } catch {
+        // Sin Photon la búsqueda sigue funcionando con el catálogo.
+        return locales;
+    }
+    const clave = (ciudad) => `${catalogoDestinos.normalizar(ciudad.nombre)}|${ciudad.codigoPais}`;
+    const vistas = new Set(locales.map(clave));
+    return [...locales, ...externas.filter((ciudad) => !vistas.has(clave(ciudad)))].slice(0, 20);
+};
+
+// Ciudad indicada solo por nombre (por ejemplo desde Swagger o Postman) que no está en el catálogo:
+// se acepta si Photon tiene una ciudad con ese nombre en ese país y, si llegan coordenadas, a menos de
+// 50 km de ellas. Así «Valencia» con sus coordenadas pasa y «Xyzabc» no (RF09).
+const verificarCiudadPorNombre = async (ciudad) => {
+    const pais = ciudad.pais ? catalogoDestinos.obtenerPais(ciudad.pais) : null;
+    if (ciudad.pais && !pais) return null;
+    const datos = await solicitarPhoton({ q: [ciudad.nombre, ciudad.pais].filter(Boolean).join(" "), layer: "city", limit: 10 });
+    const nombre = catalogoDestinos.normalizar(ciudad.nombre);
+    const conCoordenadas = Number.isFinite(ciudad.latitud) && Number.isFinite(ciudad.longitud);
+    for (const feature of datos.features || []) {
+        const lugar = lugarDesdePhoton(feature);
+        if (!lugar || catalogoDestinos.normalizar(lugar.nombre) !== nombre) continue;
+        if (pais && lugar.codigoPais !== pais.codigo) continue;
+        if (conCoordenadas && distanciaKm({ lat: ciudad.latitud, lon: ciudad.longitud }, { lat: lugar.latitud, lon: lugar.longitud }) > 50) continue;
+        guardarCache(`lugar:${lugar.idExterno}`, lugar);
+        return lugar;
+    }
+    return null;
+};
+
+// Confirma que una ciudad de OpenStreetMap existe antes de guardarla en un viaje (RF09).
+// Devuelve los datos de Photon (nombre, país del catálogo y coordenadas) o null si no la encuentra.
+const verificarCiudadExterna = async (ciudad) => {
+    const cacheado = leerCache(`lugar:${ciudad.idExterno}`);
+    if (cacheado) return cacheado;
+    const coincidencia = /^osm-([NRW])-(d+)$/.exec(ciudad.idExterno || "");
+    if (!coincidencia) return null;
+    const busqueda = await solicitarPhoton({ q: [ciudad.nombre, ciudad.pais].filter(Boolean).join(" "), layer: "city", limit: 10 });
+    const feature = (busqueda.features || []).find((item) => String(item.properties?.osm_type) === coincidencia[1]
+        && String(item.properties?.osm_id) === coincidencia[2]);
+    const lugar = feature ? lugarDesdePhoton(feature) : null;
+    if (lugar) guardarCache(`lugar:${lugar.idExterno}`, lugar);
+    return lugar;
 };
 
 const listarPaises = async (prefijo) => {
     return catalogoDestinos.listarPaises(prefijo);
 };
 
-const buscarAtractivosWiki = async (nombre, pais) => {
+const consultarWikipedia = async (parametros) => {
     const url = new URL("https://es.wikipedia.org/w/api.php");
-    const busqueda = [nombre, pais, "atractivos turísticos"].filter(Boolean).join(" ");
-    for (const [clave, valor] of Object.entries({
-        action: "query",
-        generator: "search",
-        gsrsearch: busqueda,
-        gsrnamespace: 0,
-        gsrlimit: 5,
-        prop: "extracts|info",
-        exintro: 1,
-        explaintext: 1,
-        inprop: "url",
-        format: "json",
-        formatversion: 2
-    })) url.searchParams.set(clave, String(valor));
-
-    let respuesta;
+    for (const [clave, valor] of Object.entries({ ...parametros, format: "json", formatversion: 2 })) {
+        url.searchParams.set(clave, String(valor));
+    }
     try {
-        respuesta = await fetch(url, {
+        const respuesta = await fetch(url, {
             headers: { Accept: "application/json", "User-Agent": WIKIPEDIA_AGENT },
             signal: AbortSignal.timeout(8000)
         });
-    } catch (error) {
-        return { estado: "no_disponible", atractivos: [] };
+        return respuesta.ok ? await respuesta.json() : null;
+    } catch {
+        return null;
     }
-    if (!respuesta.ok) return { estado: "no_disponible", atractivos: [] };
+};
 
-    let datos;
-    try {
-        datos = await respuesta.json();
-    } catch (error) {
-        return { estado: "no_disponible", atractivos: [] };
-    }
-    const paginas = datos.query?.pages || [];
-    const atractivos = paginas
-        .filter((pagina) => pagina.extract)
+const distanciaKm = (a, b) => {
+    const rad = (grados) => grados * Math.PI / 180;
+    const h = Math.sin(rad(b.lat - a.lat) / 2) ** 2
+        + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+};
+
+// Divisiones administrativas que aparecen cerca de la ciudad pero no son atractivos.
+const ES_DIVISION = /^(partido|departamento|provincia|municipio|comuna|distrito|condado|regi[oó]n|cant[oó]n) de /i;
+
+// Contenido de Wikipedia para un destino externo (RF16). La descripción sale del artículo cuyo título es
+// la ciudad (siguiendo redirecciones) y los atractivos de artículos geolocalizados a menos de 10 km.
+// Una búsqueda de texto libre devolvía artículos no relacionados (por ejemplo «Ferrocarril en Argentina»).
+const buscarAtractivosWiki = async (nombre, pais, latitud = null, longitud = null) => {
+    const comun = { action: "query", prop: "extracts|info|coordinates", exintro: 1, explaintext: 1, inprop: "url", redirects: 1 };
+    const conCoordenadas = Number.isFinite(latitud) && Number.isFinite(longitud);
+    const [articulo, cercanos] = await Promise.all([
+        consultarWikipedia({ ...comun, titles: nombre }),
+        conCoordenadas
+            ? consultarWikipedia({ ...comun, generator: "geosearch", ggscoord: `${latitud}|${longitud}`, ggsradius: 10000, ggslimit: 15 })
+            : null
+    ]);
+    if (!articulo && !cercanos) return { estado: "no_disponible", atractivos: [] };
+
+    const cerca = (pagina, maximoKm) => !conCoordenadas || !pagina.coordinates?.length
+        || distanciaKm({ lat: latitud, lon: longitud }, pagina.coordinates[0]) <= maximoKm;
+    const ciudad = (articulo?.query?.pages || []).find((pagina) => !pagina.missing && pagina.extract
+        && !/puede referirse a/i.test(pagina.extract) && cerca(pagina, 50));
+    const atractivos = (cercanos?.query?.pages || [])
+        .filter((pagina) => pagina.extract && pagina.pageid !== ciudad?.pageid
+            && catalogoDestinos.normalizar(pagina.title) !== catalogoDestinos.normalizar(nombre)
+            && !ES_DIVISION.test(pagina.title))
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .slice(0, 5)
         .map((pagina) => ({
             nombre: pagina.title,
             descripcion: pagina.extract.slice(0, 1200),
             urlFuente: pagina.fullurl
         }));
-    return { estado: atractivos.length ? "disponible" : "sin_resultados", fuente: "Wikipedia", atractivos };
+    return {
+        estado: ciudad || atractivos.length ? "disponible" : "sin_resultados",
+        fuente: "Wikipedia",
+        descripcion: ciudad ? ciudad.extract.slice(0, 1200) : null,
+        atractivos
+    };
 };
 
 const buscarFotosUnsplash = async (nombre, pais) => {
@@ -322,7 +416,7 @@ const obtener = async (id, nombre, pais) => {
     const wikidataId = ciudad.wikiDataId || null;
     const fuenteGeografica = esPhoton ? "Photon / OpenStreetMap" : "GeoDB Cities";
     const [wiki, atractivosWikidata, fotos] = await Promise.all([
-        buscarAtractivosWiki(nombreCiudad, paisCiudad),
+        buscarAtractivosWiki(nombreCiudad, paisCiudad, ciudad.latitude ?? null, ciudad.longitude ?? null),
         wikidataService.obtenerAtractivos(wikidataId),
         buscarFotosUnsplash(nombreCiudad, paisCiudad)
     ]);
@@ -337,7 +431,7 @@ const obtener = async (id, nombre, pais) => {
         latitud: ciudad.latitude ?? null,
         longitud: ciudad.longitude ?? null,
         poblacion: ciudad.population ?? null,
-        descripcion: wiki.atractivos[0]?.descripcion || atractivos[0]?.descripcion || null,
+        descripcion: wiki.descripcion || null,
         atractivos,
         fotos,
         puntajeTuristico: atractivosWikidata.length ? Math.min(100, atractivosWikidata.length * 10) : null,
@@ -348,4 +442,4 @@ const obtener = async (id, nombre, pais) => {
     return resultado;
 };
 
-module.exports = { buscar, listarPaises, obtener };
+module.exports = { buscar, listarPaises, obtener, verificarCiudadExterna, verificarCiudadPorNombre };

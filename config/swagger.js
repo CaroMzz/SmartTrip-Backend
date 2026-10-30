@@ -1,4 +1,5 @@
 const swaggerJsdoc = require("swagger-jsdoc");
+const { TIPOS: TIPOS_TRANSPORTE } = require("../services/transportes");
 
 const idPath = [{ name: "id", in: "path", required: true, description: "Identificador del viaje.", schema: { type: "string" }, example: "1" }];
 const jsonBody = (schema, example) => ({
@@ -59,7 +60,9 @@ const definition = {
                 type: "object", minProperties: 1, additionalProperties: false,
                 properties: {
                     nombre: { type: "string", minLength: 1, maxLength: 150 },
-                    transportePreferido: { type: "string", enum: ["tren", "avion", "auto"] },
+                    email: { type: "string", format: "email", maxLength: 320, description: "Correo nuevo. Si cambia, exige contrasenaActual y cierra las demás sesiones." },
+                    contrasenaActual: { type: "string", description: "Obligatoria solo para cambiar el correo." },
+                    transportePreferido: { type: "string", enum: [...TIPOS_TRANSPORTE] },
                     prioridades: { $ref: "#/components/schemas/Prioridades" }
                 }, example: { nombre: "Ana Pérez", transportePreferido: "tren", prioridades: { ahorro: 60, atractivos: 40 } }
             },
@@ -99,12 +102,12 @@ const definition = {
             ViajeNuevo: {
                 type: "object", required: ["nombre", "paises", "ciudadesObligatorias", "fechaInicio", "duracionDias", "cantidadPersonas"], additionalProperties: false,
                 properties: {
-                    nombre: { type: "string", minLength: 1, maxLength: 120, example: "España, a tu ritmo" },
+                    nombre: { type: "string", minLength: 1, maxLength: 150, example: "España, a tu ritmo" },
                     paises: { type: "array", minItems: 1, maxItems: 10, items: { type: "string", maxLength: 100 }, example: ["España"] },
-                    ciudadesObligatorias: { type: "array", minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/Ciudad" } },
+                    ciudadesObligatorias: { type: "array", minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/Ciudad" } },
                     fechaInicio: { type: "string", format: "date", example: "2026-10-12" }, duracionDias: { type: "integer", minimum: 1, maximum: 60, example: 10 },
                     cantidadPersonas: { type: "integer", minimum: 1, maximum: 20, example: 2 }, presupuestoTotal: { type: "number", minimum: 0, exclusiveMinimum: true, maximum: 100000000, example: 3000 },
-                    moneda: { type: "string", pattern: "^[A-Za-z]{3}$", example: "USD" }, transportePreferido: { type: "string", enum: ["tren", "avion", "auto"] }, prioridades: { $ref: "#/components/schemas/Prioridades" }
+                    moneda: { type: "string", pattern: "^[A-Za-z]{3}$", example: "USD" }, transportePreferido: { type: "string", enum: [...TIPOS_TRANSPORTE] }, prioridades: { $ref: "#/components/schemas/Prioridades" }
                 }, example: {
                     nombre: "España, a tu ritmo", paises: ["España"],
                     ciudadesObligatorias: [{ nombre: "Madrid", pais: "España", latitud: 40.4168, longitud: -3.7038 }, { nombre: "Barcelona", pais: "España", latitud: 41.3874, longitud: 2.1686 }],
@@ -114,18 +117,18 @@ const definition = {
             ViajeParcial: {
                 type: "object", minProperties: 1, additionalProperties: false,
                 properties: {
-                    nombre: { type: "string", minLength: 1, maxLength: 120 }, paises: { type: "array", minItems: 1, maxItems: 10, items: { type: "string" } },
-                    ciudadesObligatorias: { type: "array", minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/Ciudad" } },
+                    nombre: { type: "string", minLength: 1, maxLength: 150 }, paises: { type: "array", minItems: 1, maxItems: 10, items: { type: "string" } },
+                    ciudadesObligatorias: { type: "array", minItems: 1, maxItems: 20, items: { $ref: "#/components/schemas/Ciudad" } },
                     fechaInicio: { type: "string", format: "date" }, duracionDias: { type: "integer", minimum: 1, maximum: 60 }, cantidadPersonas: { type: "integer", minimum: 1, maximum: 20 },
                     presupuestoTotal: { type: "number", minimum: 0, exclusiveMinimum: true, maximum: 100000000 }, moneda: { type: "string", pattern: "^[A-Za-z]{3}$" },
-                    transportePreferido: { type: "string", enum: ["tren", "avion", "auto"] }, prioridades: { $ref: "#/components/schemas/Prioridades" }
+                    transportePreferido: { type: "string", enum: [...TIPOS_TRANSPORTE] }, prioridades: { $ref: "#/components/schemas/Prioridades" }
                 }
             },
             ConfiguracionViaje: {
                 type: "object", minProperties: 1, additionalProperties: false,
                 properties: {
                     presupuestoTotal: { type: "number", minimum: 0, exclusiveMinimum: true, maximum: 100000000, example: 3000 }, moneda: { type: "string", pattern: "^[A-Za-z]{3}$", example: "USD" },
-                    transportePreferido: { type: "string", enum: ["tren", "avion", "auto"] }, prioridades: { $ref: "#/components/schemas/Prioridades" }
+                    transportePreferido: { type: "string", enum: [...TIPOS_TRANSPORTE] }, prioridades: { $ref: "#/components/schemas/Prioridades" }
                 }, example: { presupuestoTotal: 3000, moneda: "USD", transportePreferido: "tren", prioridades: { ahorro: 60, atractivos: 40 } }
             },
             SeleccionarItinerario: { type: "object", required: ["itinerarioId"], properties: { itinerarioId: { type: "string", description: "ID devuelto al generar o listar itinerarios." } }, example: { itinerarioId: "id-devuelto-por-generar" } },
@@ -140,13 +143,14 @@ const definition = {
     },
     paths: {
         "/": { get: { tags: ["Estado"], summary: "Comprobar que el backend está activo", responses: { 200: { description: "Backend funcionando", content: { "application/json": { schema: { $ref: "#/components/schemas/Mensaje" }, example: { mensaje: "Backend de SmartTrip funcionando" } } } } } } },
+        "/opciones": { get: { tags: ["Estado"], summary: "Transportes y criterios de prioridad admitidos", responses: { 200: { description: "Listas que usa la interfaz", content: { "application/json": { example: { transportes: [{ tipo: "tren", etiqueta: "Tren" }], criterios: [{ clave: "ahorro", etiqueta: "Minimizar costos" }], prioridadesPorDefecto: { ahorro: 60, distancia: 0, atractivos: 40, alojamiento: 0, tren: 0, panoramicas: 0 } } } } } } } },
         "/usuarios/registro": { post: { tags: ["Usuarios"], summary: "Registrar una cuenta", description: "Envía un correo de verificación si SMTP está configurado.", requestBody: jsonBody("RegistroUsuario"), responses: { 201: { description: "Cuenta creada" }, 400: errorResponses[400], 409: { description: "El correo ya está registrado", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } }, 500: errorResponses[500] } } },
         "/usuarios/reenviar-verificacion": { post: { tags: ["Usuarios"], summary: "Reenviar verificación de correo", description: "La respuesta no revela si el correo pertenece a una cuenta pendiente.", requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["email"], properties: { email: { type: "string", format: "email", example: "ana@example.com" } } }, example: { email: "ana@example.com" } } } }, responses: { 200: ok("Solicitud procesada"), 400: errorResponses[400] } } },
         "/usuarios/login": { post: { tags: ["Usuarios"], summary: "Iniciar sesión", requestBody: jsonBody("Credenciales"), responses: { 200: { description: "Sesión iniciada; la respuesta contiene el token Bearer", content: { "application/json": { schema: { $ref: "#/components/schemas/ResultadoGenerico" }, example: { mensaje: "Sesión iniciada", token: "token-de-sesion", tipo: "Bearer", usuario: { id: "1", nombre: "Ana Pérez", email: "ana@example.com" } } } } }, 400: errorResponses[400], 401: errorResponses[401], 403: { description: "El correo aún no está verificado", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } } } },
         "/usuarios/confirmar-correo": { post: { tags: ["Usuarios"], summary: "Confirmar correo", requestBody: jsonBody("TokenConfirmacion"), responses: { 200: ok("Correo confirmado"), 400: errorResponses[400] } } },
         "/usuarios/me": {
             get: { tags: ["Usuarios"], summary: "Obtener mi perfil", security: secured, responses: { 200: { description: "Perfil obtenido" }, 401: errorResponses[401] } },
-            patch: { tags: ["Usuarios"], summary: "Actualizar mi perfil", security: secured, requestBody: jsonBody("ActualizarPerfil"), responses: { 200: ok("Perfil actualizado"), 400: errorResponses[400], 401: errorResponses[401], 404: errorResponses[404] } }
+            patch: { tags: ["Usuarios"], summary: "Actualizar mi perfil", description: "Para cambiar el correo enviá email y contrasenaActual: 401 si la contraseña no coincide y 409 si el correo ya está en uso.", security: secured, requestBody: jsonBody("ActualizarPerfil"), responses: { 200: ok("Perfil actualizado"), 400: errorResponses[400], 401: errorResponses[401], 404: errorResponses[404], 409: { description: "El correo ya pertenece a otra cuenta", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } } }
         },
         "/usuarios/me/contrasena": { patch: { tags: ["Usuarios"], summary: "Cambiar mi contraseña", security: secured, requestBody: jsonBody("CambioContrasena"), responses: { 200: ok("Contraseña actualizada"), 400: errorResponses[400], 401: { description: "Sesión inválida o contraseña actual incorrecta", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } } } } },
         "/usuarios/logout": { post: { tags: ["Usuarios"], summary: "Cerrar mi sesión", security: secured, responses: { 204: { description: "Sesión cerrada; sin contenido" }, 401: errorResponses[401] } } },

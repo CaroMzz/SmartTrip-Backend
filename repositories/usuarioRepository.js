@@ -74,10 +74,11 @@ const guardarUsuario = async (usuario) => {
                 contrasena_hash = $3,
                 correo_verificado_en = $4,
                 transporte_preferido = $5,
+                correo = $6,
                 actualizado_en = now()
             WHERE id = $1
             RETURNING *
-        `, [usuario.id, usuario.nombre, usuario.contrasena_hash, usuario.correo_verificado_en, usuario.transporte_preferido || null]);
+        `, [usuario.id, usuario.nombre, usuario.contrasena_hash, usuario.correo_verificado_en, usuario.transporte_preferido || null, usuario.correo]);
         if (!actualizado.rowCount) {
             await cliente.query("ROLLBACK");
             return null;
@@ -98,6 +99,48 @@ const guardarUsuario = async (usuario) => {
         }
         await cliente.query("COMMIT");
         return mapearUsuario({ ...actualizado.rows[0], ...preferencia.rows[0] });
+    } catch (error) {
+        await cliente.query("ROLLBACK");
+        if (error.code === "23505") {
+            const duplicado = new Error("Ya existe una cuenta con ese correo");
+            duplicado.codigo = "CORREO_DUPLICADO";
+            throw duplicado;
+        }
+        throw error;
+    } finally {
+        cliente.release();
+    }
+};
+
+// Marca el token como usado y confirma la cuenta en una sola transacción. Las dos marcas de tiempo
+// salen de now() de la base, así se cumple CHECK (usado_en >= creado_en) aunque el reloj del servidor
+// de Node no coincida con el de PostgreSQL. Devuelve null si el token no existe, venció o ya se usó.
+const confirmarVerificacion = async (hash) => {
+    const cliente = await pool.connect();
+    try {
+        await cliente.query("BEGIN");
+        const token = await cliente.query(`
+            UPDATE smarttrip.verificacion_correo
+            SET usado_en = now()
+            WHERE token_hash = $1 AND usado_en IS NULL AND vence_en > now()
+            RETURNING "FK_usuario_id" AS usuario_id
+        `, [hash]);
+        if (!token.rowCount) {
+            await cliente.query("ROLLBACK");
+            return null;
+        }
+        const usuario = await cliente.query(`
+            UPDATE smarttrip.usuario
+            SET correo_verificado_en = COALESCE(correo_verificado_en, now()), actualizado_en = now()
+            WHERE id = $1
+            RETURNING id, correo
+        `, [token.rows[0].usuario_id]);
+        if (!usuario.rowCount) {
+            await cliente.query("ROLLBACK");
+            return null;
+        }
+        await cliente.query("COMMIT");
+        return { id: String(usuario.rows[0].id), correo: usuario.rows[0].correo };
     } catch (error) {
         await cliente.query("ROLLBACK");
         throw error;
@@ -180,6 +223,7 @@ module.exports = {
     guardarUsuario,
     guardarVerificacion,
     buscarVerificacion,
+    confirmarVerificacion,
     revocarVerificacionesUsuario,
     guardarSesion,
     buscarSesion,

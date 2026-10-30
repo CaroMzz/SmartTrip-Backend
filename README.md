@@ -30,6 +30,10 @@ El comando de inspección es de solo lectura. `npm run db:migrate` aplica cambio
 
 Iniciá el backend con `npm start`. Los valores numéricos deben ser enteros positivos y la opción para imprimir tokens acepta `true` o `false`.
 
+## Pruebas
+
+`npm test` ejecuta la suite de Jest (`__tests__/`). Usa dobles de la base y de los servicios externos, así que no necesita `DATABASE_URL` ni conexión a internet.
+
 ## Autenticación y persistencia
 
 El flujo permite registro, inicio de sesión, confirmación de correo, actualización del perfil, cambio de contraseña y cierre de sesión. Usuarios, verificaciones, sesiones, viajes e itinerarios se guardan en PostgreSQL, en el esquema `smarttrip`; no se pierden al reiniciar el proceso del backend. La conexión es obligatoria y se configura mediante `DATABASE_URL`.
@@ -98,6 +102,6 @@ Para desarrollo local, si quieres que el navegador reciba el token directamente,
 
 ## API de viajes y destinos
 
-Los endpoints para perfil, viajes, alternativas, recorrido, calendario, presupuesto y destinos están documentados en [`docs/API-VIAJES.md`](docs/API-VIAJES.md). El backend persiste esos datos en PostgreSQL. La búsqueda de ciudades necesita `GEODB_RAPIDAPI_KEY`; las rutas en auto usan OpenRouteService cuando se configura `ORS_API_KEY` y, si no está disponible, recurren a una aproximación geográfica.
+Los endpoints para perfil, viajes, alternativas, recorrido, calendario, presupuesto y destinos están documentados en [`docs/API-VIAJES.md`](docs/API-VIAJES.md). El backend persiste esos datos en PostgreSQL. La búsqueda de ciudades usa el catálogo local y la completa con Photon (OpenStreetMap, sin clave); los ids de GeoDB necesitan `GEODB_RAPIDAPI_KEY`. Las rutas en auto usan OpenRouteService cuando se configura `ORS_API_KEY` y, si no está disponible, recurren a una aproximación geográfica.
 
 La configuración de Render está en [`render.yaml`](render.yaml). El despliegue todavía requiere cargar allí las variables secretas y configurar `CORS_ORIGINS` y `FRONTEND_URL` con la URL real del frontend.

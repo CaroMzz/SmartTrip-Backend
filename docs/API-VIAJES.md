@@ -24,13 +24,17 @@ Ejemplo para crear el primer paso del formulario:
     { "nombre": "Valencia", "pais": "España", "latitud": 39.4699, "longitud": -0.3763 },
     { "nombre": "Barcelona", "pais": "España", "latitud": 41.3874, "longitud": 2.1686 }
   ],
-  "fechaInicio": "2026-10-12",
+  "fechaInicio": "2027-10-12",
   "duracionDias": 10,
   "cantidadPersonas": 2
 }
 ```
 
-Las fechas usan `AAAA-MM-DD`; la fecha de fin se calcula contando ambos extremos. Cada ciudad acepta `idExterno`, `latitud`, `longitud` y un `puntajeTuristico` entero entre 0 y 100 opcionales. Para generar itinerarios sí se requieren coordenadas.
+Las fechas usan `AAAA-MM-DD`; la fecha de fin se calcula contando ambos extremos y la de inicio no puede ser anterior a hoy (un viaje ya iniciado se puede editar mientras no cambie su fecha). El nombre admite hasta 150 caracteres. Se indican de 1 a 20 ciudades.
+
+Cada ciudad tiene que existir: se acepta si está en el catálogo local (por `idExterno` `local-…` o por nombre y país) o si OpenStreetMap la confirma, ya sea por su `idExterno` `osm-…` (el que devuelve la búsqueda) o, sin id, por nombre, país y coordenadas a menos de 50 km. Una ciudad inexistente responde `422`. Cada ciudad acepta además `latitud`, `longitud` y un `puntajeTuristico` entero entre 0 y 100 opcionales.
+
+`GET /viajes/:id` devuelve `paises` (nombres) y `paisesDetalle` (`[{ "nombre": "Espana", "codigo": "ES" }]`) para precargar el autocompletado. Editar un viaje vuelve a borrador y descarta las alternativas generadas; países, ciudades y preferencias solo se reescriben si cambiaron.
 
 Ejemplo para el segundo paso:
 
@@ -44,6 +48,8 @@ Ejemplo para el segundo paso:
 ```
 
 Las prioridades deben sumar 100. Los transportes aceptados son `tren`, `avion` y `auto`.
+
+`GET /opciones` (sin autenticación) devuelve los transportes y los seis criterios de prioridad con sus etiquetas. Están definidos en `services/transportes.js` y `services/prioridades.js`: para agregar un transporte se suma una entrada en ese módulo y su fila activa en `smarttrip.transporte`, y la interfaz lo toma de este endpoint.
 
 ## Itinerarios, mapa, calendario y presupuesto
 
@@ -72,9 +78,9 @@ Las distancias de tren y avión se aproximan entre coordenadas. Para auto, OpenR
 | Buscar ciudades por prefijo | `GET /destinos/buscar?q=Bar&paises=ES` | `{ "resultados": [] }` |
 | Ver detalles y artículos relacionados | `GET /destinos/:id?nombre=Barcelona&pais=España` | `{ "destino": {} }` |
 
-La búsqueda usa GeoDB Cities. El detalle consulta artículos de Wikipedia y, cuando hay un identificador Wikidata asociado, devuelve atractivos con coordenadas. La respuesta incluye enlaces de origen; el frontend debe mantenerlos visibles al mostrar contenido de terceros.
+La búsqueda usa el catálogo local y, cuando encuentra menos de 5 ciudades, la completa con Photon (OpenStreetMap, sin clave) limitado a los países del catálogo. Si Photon no responde, devuelve solo el catálogo. Las búsquedas repetidas se guardan en caché durante 15 minutos.
 
-La búsqueda requiere configurar `GEODB_RAPIDAPI_KEY`. Las búsquedas repetidas se guardan en caché durante 15 minutos. El detalle puede incluir artículos de Wikipedia y enlaces a la fuente.
+Para destinos de OpenStreetMap el detalle toma la descripción del artículo de Wikipedia cuyo título es la ciudad y los atractivos de artículos geolocalizados a menos de 10 km; el frontend envía `nombre` y `pais` en la consulta. Los ids de GeoDB solo responden si está configurada `GEODB_RAPIDAPI_KEY`. La respuesta incluye enlaces de origen; el frontend debe mantenerlos visibles al mostrar contenido de terceros.
 
 El detalle combina artículos de Wikipedia con atractivos y coordenadas de Wikidata. Las fotos aparecen cuando `UNSPLASH_ACCESS_KEY` está configurada; el frontend debe mostrar la atribución `Foto de … en Unsplash`, enlazar al fotógrafo y a Unsplash con las URL devueltas y cargar la URL de la imagen sin descargarla ni volver a alojarla.
 
@@ -83,11 +89,13 @@ El detalle combina artículos de Wikipedia con atractivos y coordenadas de Wikid
 | Acción | Método y ruta |
 | --- | --- |
 | Ver perfil | `GET /usuarios/me` |
-| Actualizar nombre y preferencias | `PATCH /usuarios/me` |
+| Actualizar nombre, correo y preferencias | `PATCH /usuarios/me` |
 | Cambiar contraseña | `PATCH /usuarios/me/contrasena` |
 | Cerrar sesión | `POST /usuarios/logout` |
 
 El cierre de sesión invalida el token actual.
+
+Para cambiar el correo se envía `email` (o `correo`) junto con `contrasenaActual`: responde `400` sin contraseña, `401` si no coincide y `409` si el correo ya es de otra cuenta. Al cambiarlo se cierran las demás sesiones y la actual sigue activa.
 
 ## Registro y verificacion de correo
 

@@ -5,6 +5,7 @@ const AppError = require("./appError");
 const routingService = require("./routingService");
 const catalogoDestinos = require("./catalogoDestinos");
 const prioridadesUsuario = require("./prioridades");
+const { TRANSPORTES } = require("./transportes");
 
 // Con hasta esta cantidad de ciudades se evalúan todos los órdenes posibles (7! = 5040).
 const MAX_CIUDADES_PERMUTACION = 7;
@@ -23,12 +24,6 @@ const distanciaEntre = (a, b) => {
     const h = Math.sin(deltaLat / 2) ** 2
         + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
     return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-};
-
-const AJUSTES_TRANSPORTE = {
-    auto: { factor: 1.25, velocidad: 75, horasPorTraslado: 0.2 },
-    tren: { factor: 1.1, velocidad: 110, horasPorTraslado: 0.35 },
-    avion: { factor: 1.05, velocidad: 700, horasPorTraslado: 2.5 }
 };
 
 // ---------- Generación de órdenes candidatos ----------
@@ -119,7 +114,7 @@ const pesoDias = (reparto) => (ciudad) => (ciudad.diasSugeridos ?? 1) * REPARTOS
 // Recorre el orden decidiendo dónde se aloja el viajero. Con excursiones, una ciudad cercana
 // al alojamiento actual se visita en el día (ida y vuelta) sin cambiar de alojamiento.
 const armarTramos = (orden, transporte, conExcursiones) => {
-    const ajustes = AJUSTES_TRANSPORTE[transporte];
+    const ajustes = TRANSPORTES[transporte];
     const tramos = [];
     const alojamientos = [orden[0]];
     let base = orden[0];
@@ -148,11 +143,7 @@ const calcularCostos = (viaje, distanciaKm) => {
     const tasas = config.costosReferenciales;
     const diasPersonas = viaje.duracionDias * viaje.cantidadPersonas;
     const nochesPersonas = Math.max(0, viaje.duracionDias - 1) * viaje.cantidadPersonas;
-    const transporte = viaje.transportePreferido === "tren"
-        ? distanciaKm * viaje.cantidadPersonas * tasas.trenPorPersonaKmUsd
-        : viaje.transportePreferido === "avion"
-            ? distanciaKm * viaje.cantidadPersonas * tasas.avionPorPersonaKmUsd
-            : distanciaKm * tasas.autoPorKmUsd;
+    const transporte = TRANSPORTES[viaje.transportePreferido].costo(distanciaKm, viaje.cantidadPersonas);
     const categorias = {
         hospedaje: redondear(nochesPersonas * tasas.alojamientoPorPersonaNocheUsd),
         alimentacion: redondear(diasPersonas * tasas.comidaPorPersonaDiaUsd),
@@ -298,7 +289,7 @@ const crearAlternativa = async (viaje, candidato, tipo, titulo, limites) => {
     const rutaReal = transporte === "auto" ? await routingService.obtenerRutaEnAuto(candidato.orden) : null;
     // OpenRouteService traza el recorrido ciudad por ciudad; su relación con la aproximación
     // geográfica se aplica a todos los tramos (incluidas las excursiones de ida y vuelta).
-    const aproximadoKm = longitudRecorrido(candidato.orden) * AJUSTES_TRANSPORTE.auto.factor;
+    const aproximadoKm = longitudRecorrido(candidato.orden) * TRANSPORTES.auto.factor;
     const usarRutaReal = rutaReal && aproximadoKm > 0;
     const tramos = candidato.tramos.map((tramo) => usarRutaReal ? {
         ...tramo,
@@ -394,8 +385,7 @@ const generar = async (usuarioId, viajeId) => {
     }
     viaje.prioridades ||= { ...prioridadesUsuario.POR_DEFECTO };
 
-    // Las excursiones de día no aplican a vuelos.
-    const estrategias = viaje.transportePreferido === "avion" ? [false] : [false, true];
+    const estrategias = TRANSPORTES[viaje.transportePreferido].excursiones ? [false, true] : [false];
     const candidatos = [];
     for (const orden of ordenesCandidatos(viaje.ciudades)) {
         for (const conExcursiones of estrategias) {
@@ -436,7 +426,7 @@ const listar = async (usuarioId, viajeId) => {
 };
 
 const seleccionar = async (usuarioId, viajeId, itinerarioId) => {
-    if (typeof itinerarioId !== "string" || itinerarioId.length > 80) {
+    if (typeof itinerarioId !== "string" || !/^\d{1,18}$/.test(itinerarioId)) {
         throw new AppError(400, "Indicá un identificador de itinerario válido");
     }
     const actualizado = await repository.seleccionarItinerario(viajeId, usuarioId, itinerarioId);

@@ -10,6 +10,8 @@ const AppError = require("../services/appError");
 const usuarioRoutes = require("../routes/usuarioRoutes");
 const viajeRoutes = require("../routes/viajeRoutes");
 const destinoRoutes = require("../routes/destinoRoutes");
+const transportes = require("../services/transportes");
+const prioridades = require("../services/prioridades");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("../config/swagger");
 
@@ -42,6 +44,11 @@ app.use((req, res, next) => {
 app.use("/usuarios", usuarioRoutes);
 app.use("/viajes", viajeRoutes);
 app.use("/destinos", destinoRoutes);
+
+// Transportes y criterios admitidos, para que la interfaz no repita las listas del backend.
+app.get("/opciones", (req, res) => {
+    res.json({ transportes: transportes.opciones(), criterios: prioridades.opciones(), prioridadesPorDefecto: prioridades.POR_DEFECTO });
+});
 
 app.get("/", (req, res) => {
     res.json({

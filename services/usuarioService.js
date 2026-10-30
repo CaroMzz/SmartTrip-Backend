@@ -74,24 +74,13 @@ const obtenerUsuarioDeSesion = async (token) => {
 };
 
 const confirmarCorreo = async (token) => {
-    const hash = hashToken(token);
-    const registro = await repository.buscarVerificacion(hash);
-    if (!registro || registro.usadoEn || registro.venceEn <= Date.now()) {
+    const confirmado = await repository.confirmarVerificacion(hashToken(token));
+    if (!confirmado) {
         const error = new Error("El token no es válido, ya fue usado o venció");
         error.codigo = "TOKEN_INVALIDO";
         throw error;
     }
-    const usuario = await repository.buscarPorId(registro.usuarioId);
-    if (!usuario) {
-        const error = new Error("No se encontró el usuario asociado al token");
-        error.codigo = "TOKEN_INVALIDO";
-        throw error;
-    }
-    registro.usadoEn = Date.now();
-    usuario.correo_verificado_en = new Date().toISOString();
-    await repository.guardarUsuario(usuario);
-    await repository.guardarVerificacion(hash, registro);
-    return { id: usuario.id, correo: usuario.correo };
+    return confirmado;
 };
 
 const reenviarVerificacion = async (correo) => {
@@ -107,12 +96,23 @@ const reenviarVerificacion = async (correo) => {
     return { usuario, token };
 };
 
-const actualizarPerfil = async (usuarioId, cambios) => {
+// El cambio de correo exige la contraseña actual y cierra las demás sesiones, igual que el cambio
+// de contraseña. La sesión en uso sigue activa para que un error de tipeo se pueda corregir.
+const actualizarPerfil = async (usuarioId, cambios, tokenSesion) => {
     const usuario = await repository.buscarPorId(usuarioId);
     if (!usuario || !usuario.correo_verificado_en) {
         const error = new Error("No se encontró el usuario");
         error.codigo = "USUARIO_NO_ENCONTRADO";
         throw error;
+    }
+    const cambiaCorreo = cambios.correo !== undefined && cambios.correo !== usuario.correo;
+    if (cambiaCorreo) {
+        if (!(await bcrypt.compare(cambios.contrasenaActual || "", usuario.contrasena_hash))) {
+            const error = new Error("La contraseña actual es incorrecta");
+            error.codigo = "CONTRASENA_ACTUAL_INCORRECTA";
+            throw error;
+        }
+        usuario.correo = cambios.correo;
     }
     if (cambios.nombre !== undefined) usuario.nombre = cambios.nombre;
     usuario.preferencias = {
@@ -123,6 +123,7 @@ const actualizarPerfil = async (usuarioId, cambios) => {
     };
     if (cambios.transportePreferido !== undefined) usuario.transporte_preferido = cambios.transportePreferido;
     await repository.guardarUsuario(usuario);
+    if (cambiaCorreo && tokenSesion) await repository.revocarSesionesUsuario(usuarioId, hashToken(tokenSesion));
     return perfilPublico(usuario);
 };
 

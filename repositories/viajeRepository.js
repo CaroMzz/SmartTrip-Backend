@@ -38,19 +38,20 @@ const persistirPaisesYDestinos = async (cliente, viaje) => {
         destinos.push({ id: destinoId, ciudad: { ...ciudad, pais: pais.nombre }, pais, orden: indice + 1 });
     }
 
-    for (const pais of paises.values()) {
-        await cliente.query(`
-            INSERT INTO smarttrip.viaje_pais ("FK_viaje_id", "FK_pais_id")
-            VALUES ($1, $2) ON CONFLICT ("FK_viaje_id", "FK_pais_id") DO NOTHING
-        `, [viaje.id, pais.id]);
-    }
-    for (const destino of destinos) {
-        await cliente.query(`
-            INSERT INTO smarttrip.viaje_destino ("FK_viaje_id", "FK_destino_id", "FK_pais_id", orden)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT ("FK_viaje_id", "FK_destino_id") DO UPDATE SET orden = EXCLUDED.orden
-        `, [viaje.id, destino.id, destino.pais.id, destino.orden]);
-    }
+    // Una sola inserción por tabla: cada consulta a Supabase suma una ida y vuelta de red (RNF02).
+    const idsPaises = [...paises.values()].map((pais) => pais.id);
+    await cliente.query(`
+        INSERT INTO smarttrip.viaje_pais ("FK_viaje_id", "FK_pais_id")
+        SELECT $1, unnest($2::bigint[])
+        ON CONFLICT ("FK_viaje_id", "FK_pais_id") DO NOTHING
+    `, [viaje.id, idsPaises]);
+    await cliente.query(`
+        INSERT INTO smarttrip.viaje_destino ("FK_viaje_id", "FK_destino_id", "FK_pais_id", orden)
+        SELECT $1, d.destino, d.pais, d.orden
+        FROM unnest($2::bigint[], $3::bigint[], $4::smallint[]) AS d(destino, pais, orden)
+        ON CONFLICT ("FK_viaje_id", "FK_destino_id") DO UPDATE SET orden = EXCLUDED.orden
+    `, [viaje.id, destinos.map((destino) => destino.id), destinos.map((destino) => destino.pais.id),
+        destinos.map((destino) => destino.orden)]);
     return destinos;
 };
 
@@ -79,7 +80,7 @@ const armarViaje = async (cliente, id, usuarioId) => {
 
     const [paises, destinos, itinerarios] = await Promise.all([
         cliente.query(`
-            SELECT p.nombre FROM smarttrip.viaje_pais vp
+            SELECT p.nombre, p.codigo_iso FROM smarttrip.viaje_pais vp
             JOIN smarttrip.pais p ON p.id = vp."FK_pais_id"
             WHERE vp."FK_viaje_id" = $1 ORDER BY p.nombre
         `, [id]),
@@ -109,6 +110,7 @@ const armarViaje = async (cliente, id, usuarioId) => {
         usuarioId: String(fila.FK_usuario_id),
         nombre: fila.nombre,
         paises: paises.rows.map((pais) => pais.nombre),
+        paisesDetalle: paises.rows.map((pais) => ({ nombre: pais.nombre, codigo: pais.codigo_iso })),
         ciudades: destinos.rows.map((destino, indice) => ({
             idExterno: destino.identificador_externo,
             nombre: destino.nombre,
@@ -170,28 +172,34 @@ const listarPorUsuario = async (usuarioId) => {
 
 const buscarPorUsuario = (id, usuarioId) => armarViaje(pool, id, usuarioId);
 
-const guardar = async (viaje) => {
+// Guarda los datos editados del viaje. Solo reescribe países y ciudades, preferencias o transporte
+// cuando cambian (cambios.ruta / preferencias / transporte); renombrar un viaje pasó de unas 40
+// consultas a 8. Editar siempre invalida las alternativas generadas (DEF-29, RNF02).
+const guardar = async (viaje, cambios = { ruta: true, preferencias: true, transporte: true }) => {
     const cliente = await pool.connect();
     try {
         await cliente.query("BEGIN");
-        const transporteId = await obtenerTransporteId(cliente, viaje.transportePreferido);
+        const transporteId = cambios.transporte ? await obtenerTransporteId(cliente, viaje.transportePreferido) : null;
         const actualizado = await cliente.query(`
             UPDATE smarttrip.viaje SET
-                "FK_transporte_id" = $3, nombre = $4, fecha_inicio = $5, cantidad_dias = $6,
+                "FK_transporte_id" = CASE WHEN $10::boolean THEN $3 ELSE "FK_transporte_id" END,
+                nombre = $4, fecha_inicio = $5, cantidad_dias = $6,
                 presupuesto_usd = $7, cantidad_personas = $8, estado = $9, actualizado_en = now()
             WHERE id = $1 AND "FK_usuario_id" = $2
             RETURNING id
         `, [viaje.id, viaje.usuarioId, transporteId, viaje.nombre, viaje.fechaInicio, viaje.duracionDias,
-            viaje.presupuestoTotal ?? null, viaje.cantidadPersonas, viaje.estado || "borrador"]);
+            viaje.presupuestoTotal ?? null, viaje.cantidadPersonas, viaje.estado || "borrador", Boolean(cambios.transporte)]);
         if (!actualizado.rowCount) {
             await cliente.query("ROLLBACK");
             return null;
         }
         await cliente.query("DELETE FROM smarttrip.itinerario WHERE \"FK_viaje_id\" = $1", [viaje.id]);
-        await cliente.query("DELETE FROM smarttrip.viaje_destino WHERE \"FK_viaje_id\" = $1", [viaje.id]);
-        await cliente.query("DELETE FROM smarttrip.viaje_pais WHERE \"FK_viaje_id\" = $1", [viaje.id]);
-        await persistirPaisesYDestinos(cliente, viaje);
-        await guardarPreferenciasViaje(cliente, viaje);
+        if (cambios.ruta) {
+            await cliente.query("DELETE FROM smarttrip.viaje_destino WHERE \"FK_viaje_id\" = $1", [viaje.id]);
+            await cliente.query("DELETE FROM smarttrip.viaje_pais WHERE \"FK_viaje_id\" = $1", [viaje.id]);
+            await persistirPaisesYDestinos(cliente, viaje);
+        }
+        if (cambios.preferencias) await guardarPreferenciasViaje(cliente, viaje);
         const guardado = await armarViaje(cliente, viaje.id, viaje.usuarioId);
         await cliente.query("COMMIT");
         return guardado;

@@ -11,6 +11,18 @@ const CRITERIOS = Object.freeze({
 
 const CLAVES = Object.freeze(Object.keys(CRITERIOS));
 
+// Textos que muestra la interfaz para cada criterio (GET /opciones).
+const ETIQUETAS = Object.freeze({
+    ahorro: "Minimizar costos",
+    distancia: "Reducir kilómetros recorridos",
+    atractivos: "Maximizar lugares turísticos",
+    alojamiento: "Minimizar cambios de alojamiento",
+    tren: "Priorizar tren sobre avión",
+    panoramicas: "Priorizar rutas panorámicas"
+});
+
+const opciones = () => CLAVES.map((clave) => ({ clave, etiqueta: ETIQUETAS[clave] }));
+
 const POR_DEFECTO = Object.freeze({ ahorro: 60, distancia: 0, atractivos: 40, alojamiento: 0, tren: 0, panoramicas: 0 });
 
 // Acepta el formato completo o el anterior { ahorro, atractivos }: las claves omitidas valen 0.
@@ -44,4 +56,4 @@ const desdeFila = (fila) => {
 const COLUMNAS = Object.freeze(CLAVES.map((clave) => CRITERIOS[clave]));
 const comoParametros = (prioridades) => CLAVES.map((clave) => prioridades?.[clave] ?? POR_DEFECTO[clave]);
 
-module.exports = { CLAVES, COLUMNAS, POR_DEFECTO, validar, desdeFila, comoParametros };
+module.exports = { CLAVES, COLUMNAS, POR_DEFECTO, validar, desdeFila, comoParametros, opciones };

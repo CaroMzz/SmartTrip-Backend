@@ -2,6 +2,7 @@
 const usuarioService = require("../services/usuarioService");
 const emailService = require("../services/emailService");
 const prioridades = require("../services/prioridades");
+const transportes = require("../services/transportes");
 const config = require("../config");
 
 const cuerpoJson = (req, res) => {
@@ -163,13 +164,29 @@ const obtenerPerfil = (req, res) => {
 const actualizarPerfil = async (req, res) => {
     const datos = cuerpoJson(req, res);
     if (!datos) return;
-    const permitidos = ["nombre", "transportePreferido", "prioridades"];
+    const permitidos = ["nombre", "email", "correo", "contrasenaActual", "transportePreferido", "prioridades"];
     const desconocidos = Object.keys(datos).filter((campo) => !permitidos.includes(campo));
     if (desconocidos.length) {
         return res.status(400).json({ mensaje: "El perfil contiene campos no permitidos", errores: desconocidos });
     }
 
     const cambios = {};
+    // El perfil devuelve "correo" y el registro usa "email": se aceptan los dos nombres.
+    const correoEnviado = Object.hasOwn(datos, "email") ? datos.email : datos.correo;
+    const traeCorreo = Object.hasOwn(datos, "email") || Object.hasOwn(datos, "correo");
+    if (traeCorreo) {
+        const correo = typeof correoEnviado === "string" ? correoEnviado.trim().toLowerCase() : "";
+        if (!correo || correo.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+            return res.status(400).json({ mensaje: "Ingresá un email válido de hasta 320 caracteres" });
+        }
+        if (correo !== req.usuario.correo) {
+            if (typeof datos.contrasenaActual !== "string" || !datos.contrasenaActual) {
+                return res.status(400).json({ mensaje: "Para cambiar el correo ingresá tu contraseña actual" });
+            }
+            cambios.correo = correo;
+            cambios.contrasenaActual = datos.contrasenaActual;
+        }
+    }
     if (Object.hasOwn(datos, "nombre")) {
         if (typeof datos.nombre !== "string" || !datos.nombre.trim() || datos.nombre.trim().length > 150) {
             return res.status(400).json({ mensaje: "El nombre debe tener entre 1 y 150 caracteres" });
@@ -177,8 +194,8 @@ const actualizarPerfil = async (req, res) => {
         cambios.nombre = datos.nombre.trim();
     }
     if (Object.hasOwn(datos, "transportePreferido")) {
-        if (!["tren", "avion", "auto"].includes(datos.transportePreferido)) {
-            return res.status(400).json({ mensaje: "El transporte debe ser tren, avion o auto" });
+        if (!transportes.esValido(datos.transportePreferido)) {
+            return res.status(400).json({ mensaje: transportes.MENSAJE_INVALIDO });
         }
         cambios.transportePreferido = datos.transportePreferido;
     }
@@ -187,12 +204,19 @@ const actualizarPerfil = async (req, res) => {
         if (validacion.error) return res.status(400).json({ mensaje: validacion.error });
         cambios.prioridades = validacion.prioridades;
     }
-    if (!Object.keys(cambios).length) {
+    if (!Object.keys(cambios).length && !traeCorreo) {
         return res.status(400).json({ mensaje: "Indicá al menos un campo para actualizar" });
     }
 
-    const usuario = await usuarioService.actualizarPerfil(req.usuario.id, cambios);
-    return res.json({ mensaje: "Perfil actualizado", usuario });
+    try {
+        const usuario = await usuarioService.actualizarPerfil(req.usuario.id, cambios, req.tokenSesion);
+        return res.json({ mensaje: "Perfil actualizado", usuario });
+    } catch (error) {
+        if (error.codigo === "CORREO_DUPLICADO") return res.status(409).json({ mensaje: error.message });
+        if (error.codigo === "CONTRASENA_ACTUAL_INCORRECTA") return res.status(401).json({ mensaje: error.message });
+        if (error.codigo === "USUARIO_NO_ENCONTRADO") return res.status(404).json({ mensaje: error.message });
+        throw error;
+    }
 };
 
 const cerrarSesion = async (req, res) => {
